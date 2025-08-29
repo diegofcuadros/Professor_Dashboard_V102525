@@ -1,0 +1,160 @@
+import { sql } from 'drizzle-orm';
+import {
+  index,
+  jsonb,
+  pgTable,
+  timestamp,
+  varchar,
+  text,
+  boolean,
+  integer,
+  decimal,
+  date,
+  time,
+  uuid,
+} from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// Session storage table.
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table.
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  role: varchar("role").notNull().default('student'), // 'admin', 'professor', 'student', 'postdoc'
+  department: varchar("department"),
+  yearLevel: varchar("year_level"), // For students: "1st Year PhD", "2nd Year Master's", etc.
+  specialization: varchar("specialization"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const projects = pgTable("projects", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  startDate: date("start_date"),
+  targetEndDate: date("target_end_date"),
+  status: varchar("status").notNull().default('active'), // 'active', 'completed', 'paused'
+  projectType: varchar("project_type", { length: 50 }),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const projectAssignments = pgTable("project_assignments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  projectId: uuid("project_id").references(() => projects.id).notNull(),
+  role: varchar("role", { length: 50 }), // 'lead', 'contributor', 'mentor'
+  allocationPercentage: integer("allocation_percentage"),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const progressUpdates = pgTable("progress_updates", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  assignmentId: uuid("assignment_id").references(() => projectAssignments.id).notNull(),
+  phase: varchar("phase", { length: 50 }),
+  percentComplete: integer("percent_complete"),
+  hoursWorked: decimal("hours_worked", { precision: 5, scale: 2 }),
+  notes: text("notes"),
+  blockers: text("blockers"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const workSchedules = pgTable("work_schedules", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  weekStartDate: date("week_start_date").notNull(),
+  totalScheduledHours: decimal("total_scheduled_hours", { precision: 5, scale: 2 }),
+  approved: boolean("approved").default(false),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const scheduleBlocks = pgTable("schedule_blocks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  scheduleId: uuid("schedule_id").references(() => workSchedules.id).notNull(),
+  dayOfWeek: varchar("day_of_week", { length: 10 }),
+  startTime: time("start_time"),
+  endTime: time("end_time"),
+  location: varchar("location"), // 'lab', 'remote'
+  plannedActivity: varchar("planned_activity", { length: 255 }),
+  projectId: uuid("project_id").references(() => projects.id),
+});
+
+export const timeLogs = pgTable("time_logs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  checkInTime: timestamp("check_in_time"),
+  checkOutTime: timestamp("check_out_time"),
+  verificationMethod: varchar("verification_method", { length: 50 }),
+  hoursLogged: decimal("hours_logged", { precision: 5, scale: 2 }),
+  scheduleBlockId: uuid("schedule_block_id").references(() => scheduleBlocks.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  type: varchar("type", { length: 50 }),
+  subject: varchar("subject", { length: 255 }),
+  content: text("content"),
+  sentAt: timestamp("sent_at").defaultNow(),
+  readAt: timestamp("read_at"),
+  emailSent: boolean("email_sent").default(false),
+});
+
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type InsertProject = typeof projects.$inferInsert;
+export type Project = typeof projects.$inferSelect;
+export type InsertProjectAssignment = typeof projectAssignments.$inferInsert;
+export type ProjectAssignment = typeof projectAssignments.$inferSelect;
+export type InsertProgressUpdate = typeof progressUpdates.$inferInsert;
+export type ProgressUpdate = typeof progressUpdates.$inferSelect;
+export type InsertWorkSchedule = typeof workSchedules.$inferInsert;
+export type WorkSchedule = typeof workSchedules.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;
+export type Notification = typeof notifications.$inferSelect;
+
+export const insertProjectSchema = createInsertSchema(projects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProjectAssignmentSchema = createInsertSchema(projectAssignments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProgressUpdateSchema = createInsertSchema(progressUpdates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  sentAt: true,
+});
