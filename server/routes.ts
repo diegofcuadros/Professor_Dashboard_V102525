@@ -1,8 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertProjectSchema, insertProjectAssignmentSchema, insertProgressUpdateSchema, insertNotificationSchema } from "@shared/schema";
+import { setupAuth, isAuthenticated, requireRole } from "./auth";
+import { 
+  insertProjectSchema, 
+  insertProjectAssignmentSchema, 
+  insertProgressUpdateSchema, 
+  insertNotificationSchema,
+  createUserSchema,
+  loginSchema
+} from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -10,14 +17,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.post('/api/auth/register', async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const validatedData = createUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(validatedData.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists with this email" });
+      }
+      
+      const user = await storage.createUser(validatedData);
+      
+      // Set up session
+      (req.session as any).userId = user.id;
+      
+      // Don't send password hash to client
+      const { passwordHash, ...userWithoutPassword } = user;
+      res.status(201).json(userWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid registration data", errors: error.errors });
+      }
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Failed to register user" });
+    }
+  });
+
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const validatedData = loginSchema.parse(req.body);
+      
+      const user = await storage.validateUserPassword(validatedData.email, validatedData.password);
       if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+      
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Account is deactivated" });
+      }
+      
+      // Set up session
+      (req.session as any).userId = user.id;
+      
+      // Don't send password hash to client
+      const { passwordHash, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid login data", errors: error.errors });
+      }
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    req.session?.destroy((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ message: "Failed to logout" });
+      }
+      res.clearCookie('connect.sid');
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  app.get('/api/auth/user', isAuthenticated, async (req, res) => {
+    try {
+      if (!req.user) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json(user);
+      
+      // Don't send password hash to client
+      const { passwordHash, ...userWithoutPassword } = req.user;
+      res.json(userWithoutPassword);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -25,12 +99,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User Management Routes
-  app.get('/api/users', isAuthenticated, async (req: any, res) => {
+  app.get('/api/users', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'professor')) {
-        return res.status(403).json({ message: "Access denied" });
-      }
       
       const users = await storage.getAllUsers();
       res.json(users);
@@ -40,12 +110,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/users/:id/role', isAuthenticated, async (req: any, res) => {
+  app.put('/api/users/:id/role', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'professor')) {
-        return res.status(403).json({ message: "Access denied" });
-      }
       
       const { role } = req.body;
       if (!['student', 'postdoc', 'professor', 'admin'].includes(role)) {
@@ -64,12 +130,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/users/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/users/:id', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'professor')) {
-        return res.status(403).json({ message: "Access denied" });
-      }
       
       const user = await storage.deactivateUser(req.params.id);
       if (!user) {
@@ -84,12 +146,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Project Management Routes
-  app.get('/api/projects', isAuthenticated, async (req: any, res) => {
+  app.get('/api/projects', isAuthenticated, async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
+      const currentUser = req.user!;
 
       let projects;
       if (currentUser.role === 'admin' || currentUser.role === 'professor') {
@@ -105,12 +164,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/projects', isAuthenticated, async (req: any, res) => {
+  app.post('/api/projects', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'professor')) {
-        return res.status(403).json({ message: "Access denied" });
-      }
+      const currentUser = req.user!;
 
       const validatedData = insertProjectSchema.parse({
         ...req.body,
@@ -143,12 +199,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Assignment Routes
-  app.post('/api/assignments', isAuthenticated, async (req: any, res) => {
+  app.post('/api/assignments', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'professor')) {
-        return res.status(403).json({ message: "Access denied" });
-      }
 
       const validatedData = insertProjectAssignmentSchema.parse(req.body);
       const assignment = await storage.createProjectAssignment(validatedData);
@@ -162,12 +214,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/assignments/user/:userId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/assignments/user/:userId', isAuthenticated, async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
+      const currentUser = req.user!;
 
       // Users can only see their own assignments unless they're admin/professor
       if (req.params.userId !== currentUser.id && 
@@ -199,12 +248,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/progress/user/:userId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/progress/user/:userId', isAuthenticated, async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
+      const currentUser = req.user!;
 
       // Users can only see their own progress unless they're admin/professor
       if (req.params.userId !== currentUser.id && 
@@ -222,12 +268,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notification Routes
-  app.get('/api/notifications/user/:userId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/notifications/user/:userId', isAuthenticated, async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
+      const currentUser = req.user!;
 
       // Users can only see their own notifications
       if (req.params.userId !== currentUser.id) {
@@ -257,12 +300,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Analytics Routes
-  app.get('/api/analytics/user/:userId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/analytics/user/:userId', isAuthenticated, async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
+      const currentUser = req.user!;
 
       // Users can only see their own analytics unless they're admin/professor
       if (req.params.userId !== currentUser.id && 
@@ -279,12 +319,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/analytics/lab', isAuthenticated, async (req: any, res) => {
+  app.get('/api/analytics/lab', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'professor')) {
-        return res.status(403).json({ message: "Access denied" });
-      }
 
       const metrics = await storage.getLabMetrics();
       res.json(metrics);

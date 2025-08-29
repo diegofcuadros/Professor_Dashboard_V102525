@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Users } from "lucide-react";
 import type { User } from "@shared/schema";
 
 interface TeamTableProps {

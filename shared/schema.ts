@@ -28,11 +28,11 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table.
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// User storage table for email/password authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
+  email: varchar("email").unique().notNull(),
+  passwordHash: varchar("password_hash").notNull(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
@@ -125,8 +125,22 @@ export const notifications = pgTable("notifications", {
   emailSent: boolean("email_sent").default(false),
 });
 
-export type UpsertUser = typeof users.$inferInsert;
+export type InsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type CreateUserRequest = {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  department?: string;
+  yearLevel?: string;
+  specialization?: string;
+};
+export type LoginRequest = {
+  email: string;
+  password: string;
+};
 export type InsertProject = typeof projects.$inferInsert;
 export type Project = typeof projects.$inferSelect;
 export type InsertProjectAssignment = typeof projectAssignments.$inferInsert;
@@ -158,3 +172,22 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   sentAt: true,
 });
+
+export const createUserSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  role: z.enum(['admin', 'professor', 'student', 'postdoc']).default('student'),
+  department: z.string().optional(),
+  yearLevel: z.string().optional(),
+  specialization: z.string().optional(),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export type CreateUserInput = z.infer<typeof createUserSchema>;
+export type LoginInput = z.infer<typeof loginSchema>;

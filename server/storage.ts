@@ -5,7 +5,8 @@ import {
   progressUpdates,
   notifications,
   type User,
-  type UpsertUser,
+  type InsertUser,
+  type CreateUserInput,
   type Project,
   type InsertProject,
   type ProjectAssignment,
@@ -15,15 +16,17 @@ import {
   type Notification,
   type InsertNotification,
 } from "@shared/schema";
+import bcrypt from "bcrypt";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
-  // User operations
-  // (IMPORTANT) these user operations are mandatory for Replit Auth.
+  // User operations for email/password authentication
   getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(userData: CreateUserInput): Promise<User>;
+  validateUserPassword(email: string, password: string): Promise<User | null>;
   
   // User management operations
   getAllUsers(): Promise<User[]>;
@@ -58,26 +61,46 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations
-  // (IMPORTANT) these user operations are mandatory for Replit Auth.
+  // User operations for email/password authentication
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: CreateUserInput): Promise<User> {
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(userData.password, saltRounds);
+    
     const [user] = await db
       .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
+      .values({
+        email: userData.email,
+        passwordHash,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role || 'student',
+        department: userData.department,
+        yearLevel: userData.yearLevel,
+        specialization: userData.specialization,
+        isActive: true,
       })
       .returning();
     return user;
+  }
+
+  async validateUserPassword(email: string, password: string): Promise<User | null> {
+    const user = await this.getUserByEmail(email);
+    if (!user || !user.passwordHash) {
+      return null;
+    }
+    
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+    return isValidPassword ? user : null;
   }
 
   // User management operations
