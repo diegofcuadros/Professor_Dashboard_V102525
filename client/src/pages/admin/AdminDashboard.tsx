@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import MetricCard from "@/components/dashboard/MetricCard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import TeamTable from "@/components/dashboard/TeamTable";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Users, Projector, Clock, AlertTriangle, Bell } from "lucide-react";
+import { Users, Projector, Clock, AlertTriangle, Bell, FolderOpen, Plus } from "lucide-react";
 
 const adminSidebarItems = [
   { id: 'overview', label: 'Lab Overview', icon: 'chart-line' },
@@ -87,11 +89,21 @@ export default function AdminDashboard() {
         <main className="flex-1 overflow-auto" data-testid="main-content-admin">
           {activeSection === 'overview' && (
             <div className="p-6">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2">Lab Overview</h2>
-                <p className="text-muted-foreground">
-                  Real-time insights into your research team's progress and productivity
-                </p>
+              <div className="mb-6 flex justify-between items-start">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">Lab Overview</h2>
+                  <p className="text-muted-foreground">
+                    Real-time insights into your research team's progress and productivity
+                  </p>
+                </div>
+                <div className="flex space-x-3">
+                  <Link href="/admin/projects">
+                    <Button variant="outline" data-testid="button-manage-projects">
+                      <FolderOpen className="mr-2 h-4 w-4" />
+                      Manage Projects
+                    </Button>
+                  </Link>
+                </div>
               </div>
 
               {/* Key Metrics Cards */}
