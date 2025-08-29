@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
-  ProductivityTrendChart,
-  ProjectStatusPieChart,
-  TeamPerformanceRadar,
-  TimeSeriesAnalytics
-} from "@/components/AdvancedCharts";
+  LazyProductivityTrendChart,
+  LazyProjectStatusPieChart,
+  LazyTeamPerformanceRadar,
+  LazyTimeSeriesAnalytics
+} from "@/components/LazyChart";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -190,9 +190,9 @@ export default function AIAnalytics() {
     : mockInsights.filter(insight => insight.type === selectedInsightType);
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 lg:p-6">
       {/* Navigation Breadcrumbs */}
-      <div className="flex items-center space-x-2 mb-6">
+      <div className="flex items-center space-x-2 mb-4 lg:mb-6">
         <Link href="/">
           <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" data-testid="nav-home">
             <Home className="h-4 w-4 mr-2" />
@@ -203,15 +203,16 @@ export default function AIAnalytics() {
         <span className="text-foreground font-medium">AI Analytics</span>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4 lg:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
           <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center">
-            <Brain className="mr-3 h-8 w-8 text-primary" />
-            AI Analytics Dashboard
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground flex items-center">
+            <Brain className="mr-3 h-6 w-6 lg:h-8 lg:w-8 text-primary" />
+            <span className="hidden sm:inline">AI Analytics Dashboard</span>
+            <span className="sm:hidden">AI Analytics</span>
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm lg:text-base text-muted-foreground">
             Intelligent insights and predictions for your research lab
           </p>
         </div>
@@ -222,7 +223,7 @@ export default function AIAnalytics() {
       </div>
 
       {/* Key AI Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">

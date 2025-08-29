@@ -1,5 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import RealTimeNotifications from "@/components/RealTimeNotifications";
+import MobileNavigation from "@/components/MobileNavigation";
+import PerformanceMonitor from "@/components/PerformanceMonitor";
 import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -78,20 +80,31 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Top Navigation Bar */}
-      <div className="bg-white dark:bg-gray-800 border-b border-border px-6 py-3">
+      <div className="bg-white dark:bg-gray-800 border-b border-border px-4 lg:px-6 py-3">
         <div className="flex justify-between items-center max-w-7xl mx-auto">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 lg:space-x-4">
+            {/* Mobile Navigation */}
+            <MobileNavigation 
+              onLogout={() => logoutMutation.mutate()}
+              isLoggingOut={logoutMutation.isPending}
+            />
+            
             <img 
               src="attached_assets/LOGO_DigEpi_Lab_V2_1756505531752.tif" 
               alt="Digital Epidemiology Laboratory Logo" 
-              className="h-8 w-auto"
+              className="h-6 lg:h-8 w-auto"
               onError={(e) => {
                 // Fallback if TIF format isn't supported
                 e.currentTarget.style.display = 'none';
               }}
             />
-            <h1 className="text-xl font-bold text-foreground">Digital Epidemiology Laboratory</h1>
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+            <h1 className="text-lg lg:text-xl font-bold text-foreground truncate">
+              <span className="hidden sm:inline">Digital Epidemiology Laboratory</span>
+              <span className="sm:hidden">DigEpi Lab</span>
+            </h1>
+            
+            {/* Desktop User Info */}
+            <div className="hidden lg:flex items-center space-x-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
               <span>{user?.firstName} {user?.lastName}</span>
               <span className="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs capitalize">
@@ -100,7 +113,8 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="flex items-center space-x-3">
+          {/* Desktop Actions */}
+          <div className="hidden lg:flex items-center space-x-3">
             <RealTimeNotifications />
             <Button 
               variant="outline" 
@@ -113,11 +127,21 @@ export default function Dashboard() {
               {logoutMutation.isPending ? "Logging out..." : "Logout"}
             </Button>
           </div>
+          
+          {/* Mobile Actions */}
+          <div className="lg:hidden flex items-center space-x-2">
+            <RealTimeNotifications />
+          </div>
         </div>
       </div>
       
       {/* Dashboard Content */}
-      {getDashboardContent()}
+      <div className="px-4 lg:px-6">
+        {getDashboardContent()}
+      </div>
+      
+      {/* Performance Monitor */}
+      <PerformanceMonitor />
     </div>
   );
 }

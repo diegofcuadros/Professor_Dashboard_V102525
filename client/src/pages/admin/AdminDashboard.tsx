@@ -68,7 +68,7 @@ export default function AdminDashboard() {
     return null;
   }
 
-  const unreadNotifications = notifications?.filter(n => !n.readAt).length || 0;
+  const unreadNotifications = notifications?.filter((n: any) => !n.readAt).length || 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -88,11 +88,11 @@ export default function AdminDashboard() {
 
         <main className="flex-1 overflow-auto" data-testid="main-content-admin">
           {activeSection === 'overview' && (
-            <div className="p-6">
-              <div className="mb-6 flex justify-between items-start">
+            <div className="p-4 lg:p-6">
+              <div className="mb-4 lg:mb-6 flex flex-col lg:flex-row lg:justify-between lg:items-start space-y-4 lg:space-y-0">
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground mb-2">Lab Overview</h2>
-                  <p className="text-muted-foreground">
+                  <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">Lab Overview</h2>
+                  <p className="text-sm lg:text-base text-muted-foreground">
                     Real-time insights into your research team's progress and productivity
                   </p>
                 </div>
@@ -107,10 +107,10 @@ export default function AdminDashboard() {
               </div>
 
               {/* Key Metrics Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
                 <MetricCard
                   title="Active Students"
-                  value={labMetrics?.activeStudents?.toString() || "0"}
+                  value={(labMetrics as any)?.activeStudents?.toString() || "0"}
                   subtitle="team members"
                   icon={Users}
                   iconColor="text-primary"
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
                 
                 <MetricCard
                   title="Active Projects"
-                  value={labMetrics?.activeProjects?.toString() || "0"}
+                  value={(labMetrics as any)?.activeProjects?.toString() || "0"}
                   subtitle="in progress"
                   icon={Projector}
                   iconColor="text-secondary"
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Team Activity Overview */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                 <ActivityFeed 
                   title="Currently Working"
                   items={[]}
@@ -185,18 +185,18 @@ export default function AdminDashboard() {
           )}
 
           {activeSection === 'team' && (
-            <div className="p-6">
-              <div className="mb-6 flex items-center justify-between">
+            <div className="p-4 lg:p-6">
+              <div className="mb-4 lg:mb-6 flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-foreground mb-2">Team Management</h2>
-                  <p className="text-muted-foreground">
+                  <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">Team Management</h2>
+                  <p className="text-sm lg:text-base text-muted-foreground">
                     Manage your research team members and their access
                   </p>
                 </div>
               </div>
 
               <TeamTable 
-                users={allUsers || []}
+                users={(allUsers as any) || []}
                 isLoading={usersLoading}
                 error={usersError}
                 data-testid="team-table"
@@ -205,10 +205,10 @@ export default function AdminDashboard() {
           )}
 
           {activeSection === 'projects' && (
-            <div className="p-6">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2">Projects</h2>
-                <p className="text-muted-foreground">Manage research projects and assignments</p>
+            <div className="p-4 lg:p-6">
+              <div className="mb-4 lg:mb-6">
+                <h2 className="text-xl lg:text-2xl font-bold text-foreground mb-2">Projects</h2>
+                <p className="text-sm lg:text-base text-muted-foreground">Manage research projects and assignments</p>
               </div>
               <div className="text-center py-12">
                 <div className="mb-6">
