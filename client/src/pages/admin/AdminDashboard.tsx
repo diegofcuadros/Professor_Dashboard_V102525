@@ -210,10 +210,22 @@ export default function AdminDashboard() {
                 <h2 className="text-2xl font-bold text-foreground mb-2">Projects</h2>
                 <p className="text-muted-foreground">Manage research projects and assignments</p>
               </div>
-              <div className="text-center py-12 text-muted-foreground">
-                <Projector className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p className="text-lg">Project management coming in Phase 2</p>
-                <p className="text-sm">Create and manage research projects, assign team members</p>
+              <div className="text-center py-12">
+                <div className="mb-6">
+                  <FolderOpen className="w-16 h-16 mx-auto mb-4 text-primary" />
+                  <p className="text-lg font-semibold text-foreground mb-2">Project Management System</p>
+                  <p className="text-sm text-muted-foreground mb-6">Create projects, assign team members, and track progress</p>
+                </div>
+                <Link href="/admin/projects">
+                  <Button 
+                    size="lg"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    data-testid="button-open-project-management"
+                  >
+                    <FolderOpen className="mr-2 h-5 w-5" />
+                    Open Project Management
+                  </Button>
+                </Link>
               </div>
             </div>
           )}
