@@ -88,6 +88,41 @@ export const workSchedules = pgTable("work_schedules", {
   totalScheduledHours: decimal("total_scheduled_hours", { precision: 5, scale: 2 }),
   approved: boolean("approved").default(false),
   approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  status: varchar("status").notNull().default('draft'), // 'draft', 'submitted', 'approved', 'rejected'
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const timeEntries = pgTable("time_entries", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  projectId: uuid("project_id").references(() => projects.id),
+  assignmentId: uuid("assignment_id").references(() => projectAssignments.id),
+  date: date("date").notNull(),
+  startTime: varchar("start_time"), // HH:MM format
+  endTime: varchar("end_time"), // HH:MM format
+  duration: decimal("duration", { precision: 5, scale: 2 }), // hours
+  description: text("description"),
+  taskType: varchar("task_type"), // 'research', 'development', 'analysis', 'meeting', 'other'
+  billable: boolean("billable").default(true),
+  approved: boolean("approved").default(false),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const scheduleTemplates = pgTable("schedule_templates", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  isDefault: boolean("is_default").default(false),
+  workingDays: jsonb("working_days"), // ['monday', 'tuesday', ...]
+  dailyHours: decimal("daily_hours", { precision: 3, scale: 1 }).default('8.0'),
+  flexibleHours: boolean("flexible_hours").default(false),
+  approvedBy: varchar("approved_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

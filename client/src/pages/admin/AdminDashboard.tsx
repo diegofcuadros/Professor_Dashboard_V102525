@@ -269,15 +269,17 @@ export default function AdminDashboard() {
                   <p className="text-sm text-muted-foreground mb-6">Manage team schedules, time tracking, and work approvals</p>
                 </div>
                 <div className="space-y-3">
-                  <Button 
-                    size="lg"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    data-testid="button-view-schedules"
-                  >
-                    <Calendar className="mr-2 h-5 w-5" />
-                    View Team Schedules
-                  </Button>
-                  <p className="text-xs text-muted-foreground">Full scheduling features coming in Phase 4</p>
+                  <Link href="/admin/schedules">
+                    <Button 
+                      size="lg"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      data-testid="button-view-schedules"
+                    >
+                      <Calendar className="mr-2 h-5 w-5" />
+                      Open Schedule Management
+                    </Button>
+                  </Link>
+                  <p className="text-xs text-muted-foreground">Time tracking and schedule approvals</p>
                 </div>
               </div>
             </div>
@@ -296,15 +298,17 @@ export default function AdminDashboard() {
                   <p className="text-sm text-muted-foreground mb-6">Generate comprehensive reports on team productivity and project progress</p>
                 </div>
                 <div className="space-y-3">
-                  <Button 
-                    size="lg"
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    data-testid="button-generate-reports"
-                  >
-                    <BarChart3 className="mr-2 h-5 w-5" />
-                    Generate Reports
-                  </Button>
-                  <p className="text-xs text-muted-foreground">Advanced reporting features coming in Phase 4</p>
+                  <Link href="/admin/reports">
+                    <Button 
+                      size="lg"
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      data-testid="button-generate-reports"
+                    >
+                      <BarChart3 className="mr-2 h-5 w-5" />
+                      Open Reports Dashboard
+                    </Button>
+                  </Link>
+                  <p className="text-xs text-muted-foreground">Generate comprehensive analytics reports</p>
                 </div>
               </div>
             </div>
@@ -323,15 +327,17 @@ export default function AdminDashboard() {
                   <p className="text-sm text-muted-foreground mb-6">Configure lab settings, permissions, and system preferences</p>
                 </div>
                 <div className="space-y-3">
-                  <Button 
-                    size="lg"
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
-                    data-testid="button-open-settings"
-                  >
-                    <Settings className="mr-2 h-5 w-5" />
-                    Open Settings
-                  </Button>
-                  <p className="text-xs text-muted-foreground">Full settings panel coming in Phase 4</p>
+                  <Link href="/admin/settings">
+                    <Button 
+                      size="lg"
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                      data-testid="button-open-settings"
+                    >
+                      <Settings className="mr-2 h-5 w-5" />
+                      Open System Settings
+                    </Button>
+                  </Link>
+                  <p className="text-xs text-muted-foreground">Lab configuration and user management</p>
                 </div>
               </div>
             </div>

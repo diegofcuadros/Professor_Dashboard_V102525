@@ -23,8 +23,10 @@ import {
   CheckCircle,
   XCircle,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Home
 } from "lucide-react";
+import { Link } from "wouter";
 
 interface AIInsight {
   id: string;
@@ -182,10 +184,23 @@ export default function AIAnalytics() {
     : mockInsights.filter(insight => insight.type === selectedInsightType);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="min-h-screen bg-background p-6">
+      {/* Navigation Breadcrumbs */}
+      <div className="flex items-center space-x-2 mb-6">
+        <Link href="/">
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" data-testid="nav-home">
+            <Home className="h-4 w-4 mr-2" />
+            Dashboard
+          </Button>
+        </Link>
+        <span className="text-muted-foreground">→</span>
+        <span className="text-foreground font-medium">AI Analytics</span>
+      </div>
+
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center">
             <Brain className="mr-3 h-8 w-8 text-primary" />
             AI Analytics Dashboard
@@ -535,6 +550,7 @@ export default function AIAnalytics() {
           </div>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }

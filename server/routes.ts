@@ -382,6 +382,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Time Tracking Routes
+  app.get('/api/time-entries', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const weekStart = req.query.weekStart as string;
+      
+      // Users can only see their own entries unless they're admin/professor
+      let timeEntries;
+      if (currentUser.role === 'admin' || currentUser.role === 'professor') {
+        timeEntries = await storage.getAllTimeEntries(weekStart);
+      } else {
+        timeEntries = await storage.getUserTimeEntries(currentUser.id, weekStart);
+      }
+      
+      res.json(timeEntries);
+    } catch (error) {
+      console.error("Error fetching time entries:", error);
+      res.status(500).json({ message: "Failed to fetch time entries" });
+    }
+  });
+
+  app.post('/api/time-entries', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const entryData = {
+        ...req.body,
+        userId: currentUser.id // Ensure user can only create entries for themselves
+      };
+      
+      const timeEntry = await storage.createTimeEntry(entryData);
+      res.status(201).json(timeEntry);
+    } catch (error) {
+      console.error("Error creating time entry:", error);
+      res.status(500).json({ message: "Failed to create time entry" });
+    }
+  });
+
+  app.put('/api/time-entries/:id/approve', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const entryId = req.params.id;
+      
+      const approvedEntry = await storage.approveTimeEntry(entryId, currentUser.id);
+      res.json(approvedEntry);
+    } catch (error) {
+      console.error("Error approving time entry:", error);
+      res.status(500).json({ message: "Failed to approve time entry" });
+    }
+  });
+
+  // Work Schedule Routes
+  app.get('/api/work-schedules', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const weekStart = req.query.weekStart as string;
+      
+      // Users can only see their own schedules unless they're admin/professor
+      let schedules;
+      if (currentUser.role === 'admin' || currentUser.role === 'professor') {
+        schedules = await storage.getAllWorkSchedules(weekStart);
+      } else {
+        schedules = await storage.getUserWorkSchedules(currentUser.id, weekStart);
+      }
+      
+      res.json(schedules);
+    } catch (error) {
+      console.error("Error fetching work schedules:", error);
+      res.status(500).json({ message: "Failed to fetch work schedules" });
+    }
+  });
+
+  app.post('/api/work-schedules', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const scheduleData = {
+        ...req.body,
+        userId: currentUser.id
+      };
+      
+      const schedule = await storage.createWorkSchedule(scheduleData);
+      res.status(201).json(schedule);
+    } catch (error) {
+      console.error("Error creating work schedule:", error);
+      res.status(500).json({ message: "Failed to create work schedule" });
+    }
+  });
+
+  app.put('/api/work-schedules/:id/approve', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const scheduleId = req.params.id;
+      
+      const approvedSchedule = await storage.approveWorkSchedule(scheduleId, currentUser.id);
+      res.json(approvedSchedule);
+    } catch (error) {
+      console.error("Error approving work schedule:", error);
+      res.status(500).json({ message: "Failed to approve work schedule" });
+    }
+  });
+
+  // Reports and Analytics Routes
+  app.get('/api/reports', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const reports = await storage.getUserReports(currentUser.id);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  app.get('/api/reports/productivity/:dateRange', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const dateRange = req.params.dateRange;
+      const productivityData = await storage.getProductivityReports(dateRange);
+      res.json(productivityData);
+    } catch (error) {
+      console.error("Error fetching productivity reports:", error);
+      res.status(500).json({ message: "Failed to fetch productivity reports" });
+    }
+  });
+
+  app.get('/api/reports/projects/:dateRange', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const dateRange = req.params.dateRange;
+      const projectData = await storage.getProjectReports(dateRange);
+      res.json(projectData);
+    } catch (error) {
+      console.error("Error fetching project reports:", error);
+      res.status(500).json({ message: "Failed to fetch project reports" });
+    }
+  });
+
+  app.post('/api/reports/generate', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const reportData = {
+        ...req.body,
+        createdBy: currentUser.id,
+        status: 'generating'
+      };
+      
+      const report = await storage.createReport(reportData);
+      
+      // In a real implementation, this would queue a background job
+      // For Phase 4, we'll simulate the generation process
+      setTimeout(async () => {
+        await storage.updateReportStatus(report.id, 'completed');
+      }, 3000);
+      
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
+  app.get('/api/reports/:id/download', isAuthenticated, async (req, res) => {
+    try {
+      const reportId = req.params.id;
+      const downloadUrl = await storage.getReportDownloadUrl(reportId);
+      res.json({ downloadUrl });
+    } catch (error) {
+      console.error("Error downloading report:", error);
+      res.status(500).json({ message: "Failed to download report" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
