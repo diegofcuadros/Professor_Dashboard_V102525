@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
+import TaskList from "@/components/tasks/TaskList";
 import { 
   Target, 
   Clock, 
@@ -13,7 +14,8 @@ import {
   FileText,
   PlayCircle,
   PauseCircle,
-  CheckCircle
+  CheckCircle,
+  CheckSquare
 } from "lucide-react";
 import type { Project, ProjectAssignment, ProgressUpdate } from "@shared/schema";
 
@@ -241,6 +243,15 @@ export default function MyProjects() {
           </CardContent>
         </Card>
       )}
+
+      {/* My Tasks Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <CheckSquare className="h-6 w-6 text-primary" />
+          <h2 className="text-2xl font-bold text-foreground">My Tasks</h2>
+        </div>
+        <TaskList showProject={true} />
+      </div>
     </div>
   );
 }

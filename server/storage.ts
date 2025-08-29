@@ -4,6 +4,9 @@ import {
   projectAssignments,
   progressUpdates,
   notifications,
+  projectTasks,
+  taskAssignments,
+  taskCompletions,
   type User,
   type InsertUser,
   type CreateUserInput,
@@ -15,6 +18,12 @@ import {
   type InsertProgressUpdate,
   type Notification,
   type InsertNotification,
+  type ProjectTask,
+  type InsertProjectTask,
+  type TaskAssignment,
+  type InsertTaskAssignment,
+  type TaskCompletion,
+  type InsertTaskCompletion,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { db } from "./db";
@@ -78,6 +87,22 @@ export interface IStorage {
   getReportDownloadUrl(reportId: string): Promise<string>;
   getProductivityReports(dateRange: string): Promise<any[]>;
   getProjectReports(dateRange: string): Promise<any[]>;
+
+  // Task operations
+  createProjectTask(task: InsertProjectTask): Promise<ProjectTask>;
+  getProjectTasks(projectId: string): Promise<ProjectTask[]>;
+  updateProjectTask(id: string, updates: Partial<InsertProjectTask>): Promise<ProjectTask | undefined>;
+  deleteProjectTask(id: string): Promise<boolean>;
+  
+  // Task assignment operations
+  assignTaskToUser(assignment: InsertTaskAssignment): Promise<TaskAssignment>;
+  getUserTasks(userId: string): Promise<(ProjectTask & { projectName: string, isCompleted?: boolean })[]>;
+  getUserTasksForProject(userId: string, projectId: string): Promise<(ProjectTask & { isCompleted?: boolean })[]>;
+  
+  // Task completion operations
+  completeTask(completion: InsertTaskCompletion): Promise<TaskCompletion>;
+  getTaskCompletions(taskId: string): Promise<TaskCompletion[]>;
+  isTaskCompletedByUser(taskId: string, userId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -391,6 +416,127 @@ export class DatabaseStorage implements IStorage {
       deadline: new Date(Date.now() + (30 + index * 10) * 86400000).toISOString(),
       riskLevel: ['low', 'medium', 'high'][index % 3] as 'low' | 'medium' | 'high'
     }));
+  }
+
+  // Task operations
+  async createProjectTask(task: InsertProjectTask): Promise<ProjectTask> {
+    const [newTask] = await db.insert(projectTasks).values(task).returning();
+    return newTask;
+  }
+
+  async getProjectTasks(projectId: string): Promise<ProjectTask[]> {
+    return await db
+      .select()
+      .from(projectTasks)
+      .where(eq(projectTasks.projectId, projectId))
+      .orderBy(projectTasks.orderIndex, projectTasks.createdAt);
+  }
+
+  async updateProjectTask(id: string, updates: Partial<InsertProjectTask>): Promise<ProjectTask | undefined> {
+    const [task] = await db
+      .update(projectTasks)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(projectTasks.id, id))
+      .returning();
+    return task;
+  }
+
+  async deleteProjectTask(id: string): Promise<boolean> {
+    // First delete all related assignments and completions
+    await db.delete(taskAssignments).where(eq(taskAssignments.taskId, id));
+    await db.delete(taskCompletions).where(eq(taskCompletions.taskId, id));
+    
+    // Then delete the task
+    const result = await db.delete(projectTasks).where(eq(projectTasks.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Task assignment operations
+  async assignTaskToUser(assignment: InsertTaskAssignment): Promise<TaskAssignment> {
+    const [newAssignment] = await db.insert(taskAssignments).values(assignment).returning();
+    return newAssignment;
+  }
+
+  async getUserTasks(userId: string): Promise<(ProjectTask & { projectName: string, isCompleted?: boolean })[]> {
+    const userTasks = await db
+      .select({
+        id: projectTasks.id,
+        projectId: projectTasks.projectId,
+        title: projectTasks.title,
+        description: projectTasks.description,
+        dueDate: projectTasks.dueDate,
+        priority: projectTasks.priority,
+        estimatedHours: projectTasks.estimatedHours,
+        isRequired: projectTasks.isRequired,
+        orderIndex: projectTasks.orderIndex,
+        createdBy: projectTasks.createdBy,
+        createdAt: projectTasks.createdAt,
+        updatedAt: projectTasks.updatedAt,
+        projectName: projects.name,
+      })
+      .from(projectTasks)
+      .innerJoin(taskAssignments, eq(projectTasks.id, taskAssignments.taskId))
+      .innerJoin(projects, eq(projectTasks.projectId, projects.id))
+      .where(and(eq(taskAssignments.userId, userId), eq(taskAssignments.isActive, true)))
+      .orderBy(projectTasks.dueDate, projectTasks.priority);
+
+    // Check completion status for each task
+    const tasksWithCompletionStatus = await Promise.all(
+      userTasks.map(async (task) => {
+        const isCompleted = await this.isTaskCompletedByUser(task.id, userId);
+        return { ...task, isCompleted };
+      })
+    );
+
+    return tasksWithCompletionStatus;
+  }
+
+  async getUserTasksForProject(userId: string, projectId: string): Promise<(ProjectTask & { isCompleted?: boolean })[]> {
+    const userTasks = await db
+      .select()
+      .from(projectTasks)
+      .innerJoin(taskAssignments, eq(projectTasks.id, taskAssignments.taskId))
+      .where(and(
+        eq(projectTasks.projectId, projectId),
+        eq(taskAssignments.userId, userId),
+        eq(taskAssignments.isActive, true)
+      ))
+      .orderBy(projectTasks.orderIndex, projectTasks.createdAt)
+      .then(rows => rows.map(row => row.project_tasks));
+
+    // Check completion status for each task
+    const tasksWithCompletionStatus = await Promise.all(
+      userTasks.map(async (task) => {
+        const isCompleted = await this.isTaskCompletedByUser(task.id, userId);
+        return { ...task, isCompleted };
+      })
+    );
+
+    return tasksWithCompletionStatus;
+  }
+
+  // Task completion operations
+  async completeTask(completion: InsertTaskCompletion): Promise<TaskCompletion> {
+    const [newCompletion] = await db.insert(taskCompletions).values(completion).returning();
+    return newCompletion;
+  }
+
+  async getTaskCompletions(taskId: string): Promise<TaskCompletion[]> {
+    return await db
+      .select()
+      .from(taskCompletions)
+      .where(eq(taskCompletions.taskId, taskId))
+      .orderBy(desc(taskCompletions.completedAt));
+  }
+
+  async isTaskCompletedByUser(taskId: string, userId: string): Promise<boolean> {
+    const [completion] = await db
+      .select()
+      .from(taskCompletions)
+      .where(and(eq(taskCompletions.taskId, taskId), eq(taskCompletions.userId, userId)))
+      .limit(1);
+    
+    return !!completion;
   }
 }
 

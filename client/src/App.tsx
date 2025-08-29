@@ -14,6 +14,7 @@ import ReportsManagement from "@/pages/admin/ReportsManagement";
 import SystemSettings from "@/pages/admin/SystemSettings";
 import IntegrationsPage from "@/pages/admin/IntegrationsPage";
 import MyProjects from "@/pages/student/MyProjects";
+import MyTasks from "@/pages/student/MyTasks";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -35,6 +36,9 @@ function Router() {
           <Route path="/projects" component={MyProjects} />
           <Route path="/student/projects" component={MyProjects} />
           <Route path="/postdoc/projects" component={MyProjects} />
+          <Route path="/tasks" component={MyTasks} />
+          <Route path="/student/tasks" component={MyTasks} />
+          <Route path="/postdoc/tasks" component={MyTasks} />
         </>
       )}
       <Route component={NotFound} />

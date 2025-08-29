@@ -160,6 +160,41 @@ export const notifications = pgTable("notifications", {
   emailSent: boolean("email_sent").default(false),
 });
 
+export const projectTasks = pgTable("project_tasks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid("project_id").references(() => projects.id).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  dueDate: timestamp("due_date"),
+  priority: varchar("priority", { length: 20 }).default('medium'), // 'low', 'medium', 'high', 'urgent'
+  estimatedHours: decimal("estimated_hours", { precision: 5, scale: 2 }),
+  isRequired: boolean("is_required").default(true),
+  orderIndex: integer("order_index").default(0),
+  createdBy: varchar("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const taskAssignments = pgTable("task_assignments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: uuid("task_id").references(() => projectTasks.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  assignedBy: varchar("assigned_by").references(() => users.id).notNull(),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  isActive: boolean("is_active").default(true),
+});
+
+export const taskCompletions = pgTable("task_completions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: uuid("task_id").references(() => projectTasks.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  completedAt: timestamp("completed_at").defaultNow(),
+  notes: text("notes"),
+  hoursSpent: decimal("hours_spent", { precision: 5, scale: 2 }),
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  verifiedAt: timestamp("verified_at"),
+});
+
 export type InsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type CreateUserRequest = {
@@ -186,6 +221,12 @@ export type InsertWorkSchedule = typeof workSchedules.$inferInsert;
 export type WorkSchedule = typeof workSchedules.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
+export type InsertProjectTask = typeof projectTasks.$inferInsert;
+export type ProjectTask = typeof projectTasks.$inferSelect;
+export type InsertTaskAssignment = typeof taskAssignments.$inferInsert;
+export type TaskAssignment = typeof taskAssignments.$inferSelect;
+export type InsertTaskCompletion = typeof taskCompletions.$inferInsert;
+export type TaskCompletion = typeof taskCompletions.$inferSelect;
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
@@ -206,6 +247,22 @@ export const insertProgressUpdateSchema = createInsertSchema(progressUpdates).om
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   sentAt: true,
+});
+
+export const insertProjectTaskSchema = createInsertSchema(projectTasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTaskAssignmentSchema = createInsertSchema(taskAssignments).omit({
+  id: true,
+  assignedAt: true,
+});
+
+export const insertTaskCompletionSchema = createInsertSchema(taskCompletions).omit({
+  id: true,
+  completedAt: true,
 });
 
 export const createUserSchema = z.object({

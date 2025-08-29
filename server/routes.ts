@@ -7,6 +7,9 @@ import {
   insertProjectAssignmentSchema, 
   insertProgressUpdateSchema, 
   insertNotificationSchema,
+  insertProjectTaskSchema,
+  insertTaskAssignmentSchema,
+  insertTaskCompletionSchema,
   createUserSchema,
   loginSchema
 } from "@shared/schema";
@@ -548,6 +551,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error downloading report:", error);
       res.status(500).json({ message: "Failed to download report" });
+    }
+  });
+
+  // Task Management Routes
+  
+  // Create a new task for a project (professors/admin only)
+  app.post('/api/projects/:projectId/tasks', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const projectId = req.params.projectId;
+      
+      const validatedData = insertProjectTaskSchema.parse({
+        ...req.body,
+        projectId,
+        createdBy: currentUser.id,
+      });
+      
+      const task = await storage.createProjectTask(validatedData);
+      res.status(201).json(task);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid task data", errors: error.errors });
+      }
+      console.error("Error creating task:", error);
+      res.status(500).json({ message: "Failed to create task" });
+    }
+  });
+
+  // Get all tasks for a project
+  app.get('/api/projects/:projectId/tasks', isAuthenticated, async (req, res) => {
+    try {
+      const projectId = req.params.projectId;
+      const tasks = await storage.getProjectTasks(projectId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching project tasks:", error);
+      res.status(500).json({ message: "Failed to fetch project tasks" });
+    }
+  });
+
+  // Update a task (professors/admin only)
+  app.put('/api/tasks/:taskId', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const taskId = req.params.taskId;
+      const validatedData = insertProjectTaskSchema.partial().parse(req.body);
+      
+      const task = await storage.updateProjectTask(taskId, validatedData);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json(task);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid task data", errors: error.errors });
+      }
+      console.error("Error updating task:", error);
+      res.status(500).json({ message: "Failed to update task" });
+    }
+  });
+
+  // Delete a task (professors/admin only)
+  app.delete('/api/tasks/:taskId', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const taskId = req.params.taskId;
+      const success = await storage.deleteProjectTask(taskId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      res.json({ message: "Task deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
+  // Assign task to a user (professors/admin only)
+  app.post('/api/tasks/:taskId/assign', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const taskId = req.params.taskId;
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "userId is required" });
+      }
+      
+      const validatedData = insertTaskAssignmentSchema.parse({
+        taskId,
+        userId,
+        assignedBy: currentUser.id,
+      });
+      
+      const assignment = await storage.assignTaskToUser(validatedData);
+      res.status(201).json(assignment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid assignment data", errors: error.errors });
+      }
+      console.error("Error assigning task:", error);
+      res.status(500).json({ message: "Failed to assign task" });
+    }
+  });
+
+  // Get all tasks assigned to current user
+  app.get('/api/user/tasks', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const tasks = await storage.getUserTasks(currentUser.id);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching user tasks:", error);
+      res.status(500).json({ message: "Failed to fetch user tasks" });
+    }
+  });
+
+  // Get user tasks for a specific project
+  app.get('/api/user/projects/:projectId/tasks', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const projectId = req.params.projectId;
+      const tasks = await storage.getUserTasksForProject(currentUser.id, projectId);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching user project tasks:", error);
+      res.status(500).json({ message: "Failed to fetch user project tasks" });
+    }
+  });
+
+  // Complete a task
+  app.post('/api/tasks/:taskId/complete', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const taskId = req.params.taskId;
+      
+      // Check if already completed
+      const alreadyCompleted = await storage.isTaskCompletedByUser(taskId, currentUser.id);
+      if (alreadyCompleted) {
+        return res.status(400).json({ message: "Task already completed" });
+      }
+      
+      const validatedData = insertTaskCompletionSchema.parse({
+        taskId,
+        userId: currentUser.id,
+        notes: req.body.notes || null,
+        hoursSpent: req.body.hoursSpent || null,
+      });
+      
+      const completion = await storage.completeTask(validatedData);
+      res.status(201).json(completion);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid completion data", errors: error.errors });
+      }
+      console.error("Error completing task:", error);
+      res.status(500).json({ message: "Failed to complete task" });
+    }
+  });
+
+  // Get task completions (for professors/admin to review)
+  app.get('/api/tasks/:taskId/completions', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const taskId = req.params.taskId;
+      const completions = await storage.getTaskCompletions(taskId);
+      res.json(completions);
+    } catch (error) {
+      console.error("Error fetching task completions:", error);
+      res.status(500).json({ message: "Failed to fetch task completions" });
     }
   });
 
