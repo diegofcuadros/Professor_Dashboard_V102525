@@ -42,8 +42,11 @@ import {
   Edit,
   Trash2,
   UserPlus,
-  Clock
+  Clock,
+  ArrowLeft,
+  Home
 } from "lucide-react";
+import { Link } from "wouter";
 import type { Project, User } from "@shared/schema";
 
 export default function ProjectManagement() {
@@ -204,13 +207,26 @@ export default function ProjectManagement() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Project Management</h1>
-          <p className="text-muted-foreground">Create and manage research projects</p>
-        </div>
+    <div className="min-h-screen bg-background p-6">
+      {/* Navigation Breadcrumbs */}
+      <div className="flex items-center space-x-2 mb-6">
+        <Link href="/">
+          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" data-testid="nav-home">
+            <Home className="h-4 w-4 mr-2" />
+            Dashboard
+          </Button>
+        </Link>
+        <span className="text-muted-foreground">→</span>
+        <span className="text-foreground font-medium">Project Management</span>
+      </div>
+
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Project Management</h1>
+            <p className="text-muted-foreground">Create and manage research projects</p>
+          </div>
         
         <Dialog open={showCreateProject} onOpenChange={setShowCreateProject}>
           <DialogTrigger asChild>
@@ -530,6 +546,7 @@ export default function ProjectManagement() {
           </form>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
