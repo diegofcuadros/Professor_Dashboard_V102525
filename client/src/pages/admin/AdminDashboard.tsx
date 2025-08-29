@@ -10,7 +10,7 @@ import MetricCard from "@/components/dashboard/MetricCard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import TeamTable from "@/components/dashboard/TeamTable";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Users, Projector, Clock, AlertTriangle, Bell, FolderOpen, Plus, Brain } from "lucide-react";
+import { Users, Projector, Clock, AlertTriangle, Bell, FolderOpen, Plus, Brain, Calendar, BarChart3, Settings } from "lucide-react";
 
 const adminSidebarItems = [
   { id: 'overview', label: 'Lab Overview', icon: 'chart-line' },
