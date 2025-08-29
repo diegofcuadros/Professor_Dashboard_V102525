@@ -12,6 +12,7 @@ import AIAnalytics from "@/pages/admin/AIAnalytics";
 import ScheduleManagement from "@/pages/admin/ScheduleManagement";
 import ReportsManagement from "@/pages/admin/ReportsManagement";
 import SystemSettings from "@/pages/admin/SystemSettings";
+import IntegrationsPage from "@/pages/admin/IntegrationsPage";
 import MyProjects from "@/pages/student/MyProjects";
 
 function Router() {
@@ -30,6 +31,7 @@ function Router() {
           <Route path="/admin/schedules" component={ScheduleManagement} />
           <Route path="/admin/reports" component={ReportsManagement} />
           <Route path="/admin/settings" component={SystemSettings} />
+          <Route path="/admin/integrations" component={IntegrationsPage} />
           <Route path="/projects" component={MyProjects} />
           <Route path="/student/projects" component={MyProjects} />
           <Route path="/postdoc/projects" component={MyProjects} />

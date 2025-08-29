@@ -588,9 +588,9 @@ export default function SystemSettings() {
                         </div>
                       </TableCell>
                       <TableCell>{getRoleBadge(user.role)}</TableCell>
-                      <TableCell>{getStatusBadge(user.isActive)}</TableCell>
+                      <TableCell>{getStatusBadge(user.isActive ?? false)}</TableCell>
                       <TableCell>
-                        {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}
+                        Never
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">

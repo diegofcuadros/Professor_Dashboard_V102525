@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import RealTimeNotifications from "@/components/RealTimeNotifications";
 import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -90,16 +91,19 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
-            data-testid="button-logout"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            {logoutMutation.isPending ? "Logging out..." : "Logout"}
-          </Button>
+          <div className="flex items-center space-x-3">
+            <RealTimeNotifications />
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+              data-testid="button-logout"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              {logoutMutation.isPending ? "Logging out..." : "Logout"}
+            </Button>
+          </div>
         </div>
       </div>
       
