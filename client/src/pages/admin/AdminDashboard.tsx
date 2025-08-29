@@ -10,13 +10,13 @@ import MetricCard from "@/components/dashboard/MetricCard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import TeamTable from "@/components/dashboard/TeamTable";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Users, Projector, Clock, AlertTriangle, Bell, FolderOpen, Plus } from "lucide-react";
+import { Users, Projector, Clock, AlertTriangle, Bell, FolderOpen, Plus, Brain } from "lucide-react";
 
 const adminSidebarItems = [
   { id: 'overview', label: 'Lab Overview', icon: 'chart-line' },
   { id: 'team', label: 'Team Management', icon: 'users' },
   { id: 'projects', label: 'Projects', icon: 'project-diagram' },
-  { id: 'analytics', label: 'AI Analytics', icon: 'brain' },
+  { id: 'ai-analytics', label: 'AI Analytics', icon: 'brain' },
   { id: 'schedules', label: 'Schedules', icon: 'calendar-alt' },
   { id: 'reports', label: 'Reports', icon: 'file-alt' },
   { id: 'settings', label: 'Settings', icon: 'cog' },
@@ -218,18 +218,28 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {activeSection === 'analytics' && (
+          {activeSection === 'ai-analytics' && (
             <div className="p-6">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-foreground mb-2">AI Analytics</h2>
                 <p className="text-muted-foreground">Intelligent insights and predictions</p>
               </div>
-              <div className="text-center py-12 text-muted-foreground">
-                <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <p className="text-lg">AI Analytics coming in Phase 2</p>
-                <p className="text-sm">Advanced pattern analysis and risk prediction</p>
+              <div className="text-center py-12">
+                <div className="mb-6">
+                  <Brain className="w-16 h-16 mx-auto mb-4 text-blue-600" />
+                  <p className="text-lg font-semibold text-foreground mb-2">AI Analytics Dashboard</p>
+                  <p className="text-sm text-muted-foreground mb-6">Access advanced AI-powered insights and predictions</p>
+                </div>
+                <Link href="/admin/ai-analytics">
+                  <Button 
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                    data-testid="button-open-ai-analytics"
+                  >
+                    <Brain className="mr-2 h-5 w-5" />
+                    Open AI Analytics
+                  </Button>
+                </Link>
               </div>
             </div>
           )}

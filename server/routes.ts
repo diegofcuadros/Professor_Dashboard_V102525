@@ -334,6 +334,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Analytics Routes
+  app.get('/api/ai/insights', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const { aiEngine } = await import("./ai-engine");
+      const insights = await aiEngine.generateInsights();
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating AI insights:", error);
+      res.status(500).json({ message: "Failed to generate insights" });
+    }
+  });
+
+  app.get('/api/ai/productivity/:userId', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const targetUserId = req.params.userId;
+
+      if (targetUserId !== currentUser.id && 
+          currentUser.role !== 'admin' && 
+          currentUser.role !== 'professor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { aiEngine } = await import("./ai-engine");
+      const metrics = await aiEngine.generateProductivityMetrics(targetUserId);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error generating productivity metrics:", error);
+      res.status(500).json({ message: "Failed to generate productivity metrics" });
+    }
+  });
+
+  app.get('/api/ai/recommendations', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const userId = currentUser.role === 'admin' || currentUser.role === 'professor' 
+        ? undefined 
+        : currentUser.id;
+      
+      const { aiEngine } = await import("./ai-engine");
+      const recommendations = await aiEngine.generateRecommendations(userId);
+      res.json({ recommendations });
+    } catch (error) {
+      console.error("Error generating recommendations:", error);
+      res.status(500).json({ message: "Failed to generate recommendations" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
