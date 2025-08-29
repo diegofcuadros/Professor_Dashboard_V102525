@@ -192,15 +192,29 @@ export default function ProjectManagement() {
 
   if (projectsLoading) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-10 w-32" />
+      <div className="min-h-screen bg-background p-6">
+        {/* Navigation Breadcrumbs */}
+        <div className="flex items-center space-x-2 mb-6">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" data-testid="nav-home">
+              <Home className="h-4 w-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+          <span className="text-muted-foreground">→</span>
+          <span className="text-foreground font-medium">Project Management</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-64" />
-          ))}
+
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-64" />
+            ))}
+          </div>
         </div>
       </div>
     );
