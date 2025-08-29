@@ -78,7 +78,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Logout error:", err);
         return res.status(500).json({ message: "Failed to logout" });
       }
-      res.clearCookie('connect.sid');
+      res.clearCookie('connect.sid', { 
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production"
+      });
       res.json({ message: "Logged out successfully" });
     });
   });

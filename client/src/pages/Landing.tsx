@@ -37,6 +37,23 @@ export default function Landing() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/auth/logout", {});
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      window.location.reload();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Logout Failed",
+        description: error.message || "Failed to logout",
+        variant: "destructive",
+      });
+    },
+  });
 
   const loginMutation = useMutation({
     mutationFn: async (data: { email: string; password: string }) => {
