@@ -1,8 +1,8 @@
-# Lab Intelligence AI Agent (LIA) - Research Team Management System
+# Digital Epidemiology Laboratory - Research Team Management System
 
 ## Overview
 
-Lab Intelligence AI Agent (LIA) is a comprehensive research team management system designed for academic data science laboratories working with health data projects. The system provides AI-powered insights for managing multiple concurrent research projects, team members, and productivity analytics. LIA transforms traditional chaotic lab management into a streamlined, data-driven operation by automating routine supervisory tasks and providing intelligent recommendations.
+Digital Epidemiology Laboratory is a comprehensive research team management system designed for epidemiological research and health data science projects. The system provides AI-powered insights for managing multiple concurrent research projects, team members, and productivity analytics. The platform transforms traditional chaotic lab management into a streamlined, data-driven operation by automating routine supervisory tasks and providing intelligent recommendations for epidemiological research workflows.
 
 ## User Preferences
 

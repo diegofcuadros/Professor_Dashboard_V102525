@@ -81,7 +81,16 @@ export default function Dashboard() {
       <div className="bg-white dark:bg-gray-800 border-b border-border px-6 py-3">
         <div className="flex justify-between items-center max-w-7xl mx-auto">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold text-foreground">LIA Dashboard</h1>
+            <img 
+              src="attached_assets/LOGO_DigEpi_Lab_V2_1756505531752.tif" 
+              alt="Digital Epidemiology Laboratory Logo" 
+              className="h-8 w-auto"
+              onError={(e) => {
+                // Fallback if TIF format isn't supported
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <h1 className="text-xl font-bold text-foreground">Digital Epidemiology Laboratory</h1>
             <div className="flex items-center space-x-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
               <span>{user?.firstName} {user?.lastName}</span>

@@ -109,8 +109,8 @@ export default function SystemSettings() {
   const [selectedRole, setSelectedRole] = useState("");
 
   // Form states
-  const [labName, setLabName] = useState("Data Science Research Lab");
-  const [labDescription, setLabDescription] = useState("Advanced research in machine learning and data analytics");
+  const [labName, setLabName] = useState("Digital Epidemiology Laboratory");
+  const [labDescription, setLabDescription] = useState("Epidemiological research and health data science projects");
   const [timezone, setTimezone] = useState("America/New_York");
   const [workingStart, setWorkingStart] = useState("09:00");
   const [workingEnd, setWorkingEnd] = useState("17:00");
