@@ -68,7 +68,9 @@ export default function AdminDashboard() {
     return null;
   }
 
-  const unreadNotifications = notifications?.filter((n: any) => !n.readAt).length || 0;
+  const unreadNotifications = Array.isArray(notifications) 
+    ? notifications.filter((n: any) => !n.readAt).length 
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">

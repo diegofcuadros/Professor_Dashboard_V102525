@@ -383,7 +383,7 @@ export class DatabaseStorage implements IStorage {
     const projects = await this.getAllProjects();
     return projects.map((project, index) => ({
       projectId: project.id,
-      projectName: project.title,
+      projectName: project.name,
       status: project.status,
       progress: 60 + (index * 10),
       totalHours: 120 + (index * 20),
