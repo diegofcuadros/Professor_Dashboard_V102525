@@ -256,22 +256,83 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {(activeSection === 'schedules' || activeSection === 'reports' || activeSection === 'settings') && (
+          {activeSection === 'schedules' && (
             <div className="p-6">
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2 capitalize">{activeSection}</h2>
-                <p className="text-muted-foreground">
-                  {activeSection === 'schedules' && 'Schedule management and approval'}
-                  {activeSection === 'reports' && 'Generate and view reports'}
-                  {activeSection === 'settings' && 'System configuration and preferences'}
-                </p>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Schedules</h2>
+                <p className="text-muted-foreground">Schedule management and approval</p>
               </div>
-              <div className="text-center py-12 text-muted-foreground">
-                <div className="w-16 h-16 mx-auto mb-4 opacity-50 bg-muted rounded-full flex items-center justify-center">
-                  <span className="text-2xl">⚙️</span>
+              <div className="text-center py-12">
+                <div className="mb-6">
+                  <Calendar className="w-16 h-16 mx-auto mb-4 text-blue-600" />
+                  <p className="text-lg font-semibold text-foreground mb-2">Schedule Management System</p>
+                  <p className="text-sm text-muted-foreground mb-6">Manage team schedules, time tracking, and work approvals</p>
                 </div>
-                <p className="text-lg capitalize">{activeSection} coming in Phase 2</p>
-                <p className="text-sm">Enhanced functionality will be available soon</p>
+                <div className="space-y-3">
+                  <Button 
+                    size="lg"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    data-testid="button-view-schedules"
+                  >
+                    <Calendar className="mr-2 h-5 w-5" />
+                    View Team Schedules
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Full scheduling features coming in Phase 4</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'reports' && (
+            <div className="p-6">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-foreground mb-2">Reports</h2>
+                <p className="text-muted-foreground">Generate and view reports</p>
+              </div>
+              <div className="text-center py-12">
+                <div className="mb-6">
+                  <BarChart3 className="w-16 h-16 mx-auto mb-4 text-green-600" />
+                  <p className="text-lg font-semibold text-foreground mb-2">Reporting Dashboard</p>
+                  <p className="text-sm text-muted-foreground mb-6">Generate comprehensive reports on team productivity and project progress</p>
+                </div>
+                <div className="space-y-3">
+                  <Button 
+                    size="lg"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    data-testid="button-generate-reports"
+                  >
+                    <BarChart3 className="mr-2 h-5 w-5" />
+                    Generate Reports
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Advanced reporting features coming in Phase 4</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'settings' && (
+            <div className="p-6">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-foreground mb-2">Settings</h2>
+                <p className="text-muted-foreground">System configuration and preferences</p>
+              </div>
+              <div className="text-center py-12">
+                <div className="mb-6">
+                  <Settings className="w-16 h-16 mx-auto mb-4 text-purple-600" />
+                  <p className="text-lg font-semibold text-foreground mb-2">System Settings</p>
+                  <p className="text-sm text-muted-foreground mb-6">Configure lab settings, permissions, and system preferences</p>
+                </div>
+                <div className="space-y-3">
+                  <Button 
+                    size="lg"
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    data-testid="button-open-settings"
+                  >
+                    <Settings className="mr-2 h-5 w-5" />
+                    Open Settings
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Full settings panel coming in Phase 4</p>
+                </div>
               </div>
             </div>
           )}
