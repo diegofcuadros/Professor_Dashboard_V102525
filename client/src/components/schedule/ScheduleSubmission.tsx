@@ -153,6 +153,7 @@ export default function ScheduleSubmission() {
       if (editingSchedule) {
         refetchBlocks();
         queryClient.invalidateQueries({ queryKey: ["/api/schedule-validation"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/work-schedules"] });
       }
     },
     onError: (error: any) => {
@@ -414,6 +415,9 @@ export default function ScheduleSubmission() {
                 <Clock className="h-4 w-4 text-blue-600" />
                 <span className="text-sm">
                   <strong>{validation.totalHours}</strong> hours scheduled
+                  {validation.totalHours === 0 && scheduleBlocks.length === 0 && (
+                    <span className="text-red-600 ml-2">(Add schedule blocks to get started)</span>
+                  )}
                 </span>
               </div>
               
@@ -582,6 +586,11 @@ export default function ScheduleSubmission() {
                       variant="default"
                       onClick={handleSubmitSchedule}
                       disabled={submitScheduleMutation.isPending || !validation?.isValid || !isMinimumHoursMet}
+                      title={
+                        !validation?.isValid ? "Schedule has validation issues" :
+                        !isMinimumHoursMet ? "Need at least 20 hours scheduled" :
+                        "Ready to submit"
+                      }
                     >
                       <Send className="h-3 w-3 mr-1" />
                       {submitScheduleMutation.isPending ? "Submitting..." : "Submit for Approval"}
@@ -636,6 +645,11 @@ export default function ScheduleSubmission() {
                   <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No schedule blocks added yet</p>
                   <p className="text-sm">Add time blocks to build your weekly schedule</p>
+                  {currentSchedule?.status === 'draft' && (
+                    <p className="text-sm text-orange-600 mt-2">
+                      <strong>Note:</strong> You need at least 20 hours of schedule blocks to submit for approval
+                    </p>
+                  )}
                 </div>
               )}
               
