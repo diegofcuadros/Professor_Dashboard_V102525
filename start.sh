@@ -1,13 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 
-# Production startup script for Railway
 echo "🚂 Starting DataProfessor Dashboard on Railway..."
 
-# Run database migrations/setup if needed
-echo "🗄️ Setting up database schema..."
-npm run db:push || echo "⚠️ Schema setup failed, continuing..."
+echo "🗄️ Running database migrations (drizzle push)..."
+npx drizzle-kit push || echo "⚠️ Migrations failed or already applied, continuing..."
 
-echo "🌱 Seeding initial data..."
+echo "🌱 Seeding initial data (non-fatal if already seeded)..."
 npx tsx scripts/seed-database.js || echo "⚠️ Seeding skipped (data may already exist)"
 
 echo "🚀 Starting application..."
