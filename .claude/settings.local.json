@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(find:*)",
+      "Bash(node:*)",
+      "Bash(grep:*)",
+      "Bash(npm run check:*)",
+      "Bash(npm install)",
+      "WebSearch",
+      "Bash(where psql)",
+      "Bash(where pg_ctl)",
+      "Bash(choco:*)",
+      "Bash(docker:*)",
+      "Bash(net start:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

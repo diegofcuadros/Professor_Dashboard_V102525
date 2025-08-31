@@ -6,6 +6,7 @@ import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import MetricCard from "@/components/dashboard/MetricCard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
+import ScheduleSubmission from "@/components/schedule/ScheduleSubmission";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Clock, Projector, Calendar, TrendingUp, Plus, BookOpen, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -163,6 +164,7 @@ export default function StudentDashboard() {
                       variant="outline"
                       className="p-4 h-auto flex-col items-start space-y-2 bg-secondary/10 border-secondary/20 hover:bg-secondary/20 text-left"
                       data-testid="button-submit-schedule"
+                      onClick={() => setActiveSection('schedule')}
                     >
                       <Calendar className="w-5 h-5 text-secondary" />
                       <span className="text-sm font-medium text-secondary">Submit Schedule</span>
@@ -239,14 +241,19 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {(activeSection !== 'dashboard' && activeSection !== 'projects') && (
+          {activeSection === 'schedule' && (
+            <div className="p-6">
+              <ScheduleSubmission />
+            </div>
+          )}
+
+          {(activeSection !== 'dashboard' && activeSection !== 'projects' && activeSection !== 'schedule') && (
             <div className="p-6">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-foreground mb-2 capitalize">
                   {activeSection.replace('-', ' ')}
                 </h2>
                 <p className="text-muted-foreground">
-                  {activeSection === 'schedule' && 'Manage your work schedule and check-ins'}
                   {activeSection === 'progress' && 'Track your research progress and milestones'}
                   {activeSection === 'insights' && 'AI-powered insights and recommendations'}
                   {activeSection === 'lab-stats' && 'View lab-wide statistics and benchmarks'}
@@ -256,7 +263,7 @@ export default function StudentDashboard() {
                 <div className="w-16 h-16 mx-auto mb-4 opacity-50 bg-muted rounded-full flex items-center justify-center">
                   <span className="text-2xl">🚧</span>
                 </div>
-                <p className="text-lg capitalize">{activeSection.replace('-', ' ')} coming in Phase 2</p>
+                <p className="text-lg capitalize">{activeSection.replace('-', ' ')} coming in Phase 3</p>
                 <p className="text-sm">Enhanced functionality will be available soon</p>
               </div>
             </div>

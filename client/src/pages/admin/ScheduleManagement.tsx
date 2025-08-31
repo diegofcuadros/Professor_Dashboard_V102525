@@ -32,6 +32,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import ScheduleCompliance from "@/components/schedule/ScheduleCompliance";
 import { 
   Calendar,
   Clock,
@@ -352,12 +353,18 @@ export default function ScheduleManagement() {
       </div>
 
       {/* Main Content */}
-      <Tabs defaultValue="time-entries" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="compliance" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="compliance">Schedule Compliance</TabsTrigger>
           <TabsTrigger value="time-entries">Time Entries</TabsTrigger>
           <TabsTrigger value="schedules">Work Schedules</TabsTrigger>
           <TabsTrigger value="analytics">Time Analytics</TabsTrigger>
         </TabsList>
+
+        {/* Schedule Compliance Tab */}
+        <TabsContent value="compliance" className="space-y-6">
+          <ScheduleCompliance />
+        </TabsContent>
 
         {/* Time Entries Tab */}
         <TabsContent value="time-entries" className="space-y-6">

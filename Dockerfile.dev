@@ -1,0 +1,45 @@
+# LIA Lab System - Development Dockerfile
+FROM node:18-alpine
+
+# Install system dependencies
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    make \
+    g++ \
+    postgresql-client
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install Node.js dependencies
+RUN npm install
+
+# Install Python dependencies for AI analytics (optional)
+RUN pip3 install --break-system-packages \
+    pandas \
+    numpy \
+    scikit-learn \
+    requests
+
+# Create directories for file storage
+RUN mkdir -p uploads reports backups
+
+# Copy application code
+COPY . .
+
+# Set permissions (ignore if no .sh files exist)
+RUN chmod +x scripts/*.sh || true
+
+# Expose port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node scripts/health-check.js || exit 1
+
+# Default command (can be overridden)
+CMD ["npm", "run", "dev"]

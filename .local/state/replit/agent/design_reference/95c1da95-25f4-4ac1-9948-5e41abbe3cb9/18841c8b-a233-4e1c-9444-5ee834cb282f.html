@@ -1,0 +1,1356 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Intelligence AI Agent (LIA) - Academic Research Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                borderRadius: {
+                    lg: "var(--radius)",
+                    md: "calc(var(--radius) - 2px)",
+                    sm: "calc(var(--radius) - 4px)",
+                },
+                colors: {
+                    background: "var(--background)",
+                    foreground: "var(--foreground)",
+                    card: {
+                        DEFAULT: "var(--card)",
+                        foreground: "var(--card-foreground)",
+                    },
+                    popover: {
+                        DEFAULT: "var(--popover)",
+                        foreground: "var(--popover-foreground)",
+                    },
+                    primary: {
+                        DEFAULT: "var(--primary)",
+                        foreground: "var(--primary-foreground)",
+                    },
+                    secondary: {
+                        DEFAULT: "var(--secondary)",
+                        foreground: "var(--secondary-foreground)",
+                    },
+                    muted: {
+                        DEFAULT: "var(--muted)",
+                        foreground: "var(--muted-foreground)",
+                    },
+                    accent: {
+                        DEFAULT: "var(--accent)",
+                        foreground: "var(--accent-foreground)",
+                    },
+                    destructive: {
+                        DEFAULT: "var(--destructive)",
+                        foreground: "var(--destructive-foreground)",
+                    },
+                    border: "var(--border)",
+                    input: "var(--input)",
+                    ring: "var(--ring)",
+                }
+            }
+        }
+    };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --background: hsl(210 40% 98%);
+            --foreground: hsl(222.2 84% 4.9%);
+            --card: hsl(0 0% 100%);
+            --card-foreground: hsl(222.2 84% 4.9%);
+            --popover: hsl(0 0% 100%);
+            --popover-foreground: hsl(222.2 84% 4.9%);
+            --primary: hsl(210 83% 39%);
+            --primary-foreground: hsl(210 40% 98%);
+            --secondary: hsl(174 100% 21%);
+            --secondary-foreground: hsl(210 40% 98%);
+            --muted: hsl(210 40% 96%);
+            --muted-foreground: hsl(215.4 16.3% 46.9%);
+            --accent: hsl(210 40% 96%);
+            --accent-foreground: hsl(222.2 84% 4.9%);
+            --destructive: hsl(0 84.2% 60.2%);
+            --destructive-foreground: hsl(210 40% 98%);
+            --border: hsl(214.3 31.8% 91.4%);
+            --input: hsl(214.3 31.8% 91.4%);
+            --ring: hsl(210 83% 39%);
+            --radius: 0.5rem;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+        
+        .view-section {
+            display: none;
+        }
+        
+        .view-section.active {
+            display: block;
+        }
+        
+        .sidebar-nav a.active {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+        }
+    </style>
+</head>
+<body class="bg-background text-foreground min-h-screen">
+    <!-- @COMPONENT: LoginScreen -->
+    <div id="loginScreen" class="view-section active min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
+        <div class="w-full max-w-md p-8">
+            <!-- University/Lab Branding -->
+            <div class="text-center mb-8">
+                <!-- Professional university logo placeholder -->
+                <div class="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-university text-2xl text-primary-foreground"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-foreground mb-2">Lab Intelligence AI</h1>
+                <p class="text-muted-foreground">Research Team Management System</p>
+            </div>
+
+            <!-- Login Form Card -->
+            <div class="bg-card border border-border rounded-lg shadow-lg p-6">
+                <div class="space-y-6">
+                    <div class="text-center">
+                        <h2 class="text-xl font-semibold text-card-foreground">Sign In</h2>
+                        <p class="text-sm text-muted-foreground mt-1">Enter your credentials to access your dashboard</p>
+                    </div>
+
+                    <form class="space-y-4" data-implementation="Handle authentication with Replit Auth integration">
+                        <div>
+                            <label class="block text-sm font-medium text-card-foreground mb-2">Email Address</label>
+                            <input 
+                                type="email" 
+                                class="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent bg-background"
+                                placeholder="your.email@university.edu"
+                                data-mock="true"
+                            />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-card-foreground mb-2">Password</label>
+                            <input 
+                                type="password" 
+                                class="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent bg-background"
+                                placeholder="••••••••"
+                                data-mock="true"
+                            />
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center">
+                                <input type="checkbox" class="rounded border-border text-primary focus:ring-ring">
+                                <span class="ml-2 text-sm text-muted-foreground">Remember me</span>
+                            </label>
+                            <a href="#" class="text-sm text-primary hover:text-primary/80" onclick="showForgotPassword()">
+                                Forgot password?
+                            </a>
+                        </div>
+
+                        <!-- Role Selection for Demo -->
+                        <div class="space-y-3 p-4 bg-muted rounded-md">
+                            <p class="text-sm font-medium text-muted-foreground">Demo Login (Select Role):</p>
+                            <div class="grid grid-cols-1 gap-2">
+                                <button type="button" onclick="loginAs('professor')" class="w-full p-2 text-left bg-card border border-border rounded hover:bg-accent transition-colors">
+                                    <i class="fas fa-user-tie text-primary mr-2"></i>
+                                    <span class="font-medium">Professor/Admin</span>
+                                    <span class="text-xs text-muted-foreground block">Full system access & team management</span>
+                                </button>
+                                <button type="button" onclick="loginAs('student')" class="w-full p-2 text-left bg-card border border-border rounded hover:bg-accent transition-colors">
+                                    <i class="fas fa-user-graduate text-secondary mr-2"></i>
+                                    <span class="font-medium">Graduate Student</span>
+                                    <span class="text-xs text-muted-foreground block">Personal dashboard & progress tracking</span>
+                                </button>
+                                <button type="button" onclick="loginAs('postdoc')" class="w-full p-2 text-left bg-card border border-border rounded hover:bg-accent transition-colors">
+                                    <i class="fas fa-user-check text-accent-foreground mr-2"></i>
+                                    <span class="font-medium">Postdoc</span>
+                                    <span class="text-xs text-muted-foreground block">Enhanced access & mentorship tools</span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- SSO Options -->
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-border"></div>
+                        </div>
+                        <div class="relative flex justify-center text-xs uppercase">
+                            <span class="bg-card px-2 text-muted-foreground">Or continue with</span>
+                        </div>
+                    </div>
+
+                    <button class="w-full flex items-center justify-center gap-2 px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors">
+                        <i class="fab fa-google text-red-500"></i>
+                        <span>University SSO</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Footer Links -->
+            <div class="text-center mt-6 space-y-2">
+                <p class="text-sm text-muted-foreground">
+                    New to the lab? Contact your supervisor for access.
+                </p>
+                <div class="flex justify-center space-x-4 text-xs text-muted-foreground">
+                    <a href="#" class="hover:text-primary">Privacy Policy</a>
+                    <span>•</span>
+                    <a href="#" class="hover:text-primary">Support</a>
+                    <span>•</span>
+                    <a href="#" class="hover:text-primary">Documentation</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: LoginScreen -->
+
+    <!-- Password Reset Modal -->
+    <div id="forgotPasswordModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-card p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold mb-4">Reset Password</h3>
+            <p class="text-sm text-muted-foreground mb-4">Enter your email address and we'll send you a link to reset your password.</p>
+            <input type="email" placeholder="your.email@university.edu" class="w-full px-3 py-2 border border-input rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-ring">
+            <div class="flex space-x-3">
+                <button onclick="hideForgotPassword()" class="flex-1 px-4 py-2 border border-border rounded-md hover:bg-accent">Cancel</button>
+                <button class="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">Send Reset Link</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- @COMPONENT: ProfessorDashboard [Full admin access with team management] -->
+    <div id="professorDashboard" class="view-section min-h-screen bg-background">
+        <!-- Header -->
+        <header class="bg-card border-b border-border px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                            <i class="fas fa-university text-sm text-primary-foreground"></i>
+                        </div>
+                        <h1 class="text-xl font-bold text-foreground">LIA Dashboard</h1>
+                    </div>
+                    <div class="bg-primary/10 px-3 py-1 rounded-full">
+                        <span class="text-xs font-medium text-primary">
+                            <i class="fas fa-user-tie mr-1"></i>Professor
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <button class="relative p-2 text-muted-foreground hover:text-foreground">
+                        <i class="fas fa-bell"></i>
+                        <span class="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full text-xs text-destructive-foreground flex items-center justify-center">3</span>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <div class="text-right">
+                            <p class="text-sm font-medium" data-bind="user.name">Dr. Sarah Johnson</p>
+                            <p class="text-xs text-muted-foreground" data-bind="user.department">Data Science Department</p>
+                        </div>
+                        <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                            <span class="text-sm font-medium text-primary-foreground">SJ</span>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="p-2 text-muted-foreground hover:text-foreground">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex h-[calc(100vh-73px)]">
+            <!-- Sidebar Navigation -->
+            <nav class="w-64 bg-card border-r border-border p-4">
+                <div class="space-y-2">
+                    <a href="#" onclick="showProfessorSection('overview')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm active">
+                        <i class="fas fa-chart-line w-4"></i>
+                        <span>Lab Overview</span>
+                    </a>
+                    <a href="#" onclick="showProfessorSection('team')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-users w-4"></i>
+                        <span>Team Management</span>
+                    </a>
+                    <a href="#" onclick="showProfessorSection('projects')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-project-diagram w-4"></i>
+                        <span>Projects</span>
+                    </a>
+                    <a href="#" onclick="showProfessorSection('analytics')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-brain w-4"></i>
+                        <span>AI Analytics</span>
+                    </a>
+                    <a href="#" onclick="showProfessorSection('schedules')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-calendar-alt w-4"></i>
+                        <span>Schedules</span>
+                    </a>
+                    <a href="#" onclick="showProfessorSection('reports')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-file-alt w-4"></i>
+                        <span>Reports</span>
+                    </a>
+                    <a href="#" onclick="showProfessorSection('settings')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-cog w-4"></i>
+                        <span>Settings</span>
+                    </a>
+                </div>
+            </nav>
+
+            <!-- Main Content Area -->
+            <main class="flex-1 overflow-auto">
+                <!-- Lab Overview Section -->
+                <div id="prof-overview" class="professor-section p-6">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-foreground mb-2">Lab Overview</h2>
+                        <p class="text-muted-foreground">Real-time insights into your research team's progress and productivity</p>
+                    </div>
+
+                    <!-- Key Metrics Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">Active Students</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="metrics.activeStudents">12</p>
+                                </div>
+                                <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user-graduate text-primary"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">Active Projects</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="metrics.activeProjects">8</p>
+                                </div>
+                                <div class="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-project-diagram text-secondary"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">This Week's Hours</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="metrics.weeklyHours">284</p>
+                                </div>
+                                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-clock text-green-600"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">At-Risk Students</p>
+                                    <p class="text-2xl font-bold text-destructive" data-bind="metrics.atRiskStudents">2</p>
+                                </div>
+                                <div class="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-exclamation-triangle text-destructive"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Alerts -->
+                    <div class="bg-card border border-border rounded-lg p-6 mb-8">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center">
+                            <i class="fas fa-bell text-destructive mr-2"></i>
+                            Priority Alerts
+                        </h3>
+                        <div class="space-y-3">
+                            <!-- @MAP: alerts.map(alert => ( -->
+                            <div class="flex items-center justify-between p-3 bg-destructive/5 border border-destructive/20 rounded-md" data-mock="true">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-exclamation-circle text-destructive"></i>
+                                    <div>
+                                        <p class="text-sm font-medium text-foreground">Michael Chen - Missing 8 hours this week</p>
+                                        <p class="text-xs text-muted-foreground">Last check-in: 2 days ago</p>
+                                    </div>
+                                </div>
+                                <button class="px-3 py-1 bg-destructive text-destructive-foreground rounded text-xs hover:bg-destructive/90">
+                                    Send Reminder
+                                </button>
+                            </div>
+
+                            <div class="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-md" data-mock="true">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-clock text-yellow-600"></i>
+                                    <div>
+                                        <p class="text-sm font-medium text-foreground">Sarah Wilson - Project deadline in 3 days</p>
+                                        <p class="text-xs text-muted-foreground">Health Data Analysis - 78% complete</p>
+                                    </div>
+                                </div>
+                                <button class="px-3 py-1 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700">
+                                    Check Progress
+                                </button>
+                            </div>
+                            <!-- @END_MAP )) -->
+                        </div>
+                    </div>
+
+                    <!-- Team Activity Overview -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Real-time Activity -->
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <h3 class="text-lg font-semibold mb-4">Currently Working</h3>
+                            <div class="space-y-3">
+                                <!-- @MAP: activeStudents.map(student => ( -->
+                                <div class="flex items-center justify-between p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium">Emma Rodriguez</p>
+                                            <p class="text-xs text-muted-foreground">Data Analysis - Lab</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs text-muted-foreground">2.5h</span>
+                                </div>
+
+                                <div class="flex items-center justify-between p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium">David Park</p>
+                                            <p class="text-xs text-muted-foreground">Literature Review - Remote</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs text-muted-foreground">1.2h</span>
+                                </div>
+
+                                <div class="flex items-center justify-between p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium">Lisa Thompson</p>
+                                            <p class="text-xs text-muted-foreground">Model Development - Lab</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs text-muted-foreground">3.8h</span>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+
+                        <!-- Recent Progress Updates -->
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <h3 class="text-lg font-semibold mb-4">Recent Updates</h3>
+                            <div class="space-y-3">
+                                <!-- @MAP: recentUpdates.map(update => ( -->
+                                <div class="flex items-start space-x-3 p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+                                        <span class="text-xs font-medium text-primary-foreground">JD</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium">John Davis</p>
+                                        <p class="text-xs text-muted-foreground mb-1">Completed data preprocessing phase</p>
+                                        <span class="text-xs text-muted-foreground">2 hours ago</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start space-x-3 p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                                        <span class="text-xs font-medium text-secondary-foreground">AK</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium">Anna Kim</p>
+                                        <p class="text-xs text-muted-foreground mb-1">Submitted draft for review</p>
+                                        <span class="text-xs text-muted-foreground">4 hours ago</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start space-x-3 p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="w-8 h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
+                                        <span class="text-xs font-medium text-accent-foreground">RW</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium">Robert White</p>
+                                        <p class="text-xs text-muted-foreground mb-1">Started statistical analysis</p>
+                                        <span class="text-xs text-muted-foreground">6 hours ago</span>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Team Management Section -->
+                <div id="prof-team" class="professor-section p-6 hidden">
+                    <div class="mb-6 flex items-center justify-between">
+                        <div>
+                            <h2 class="text-2xl font-bold text-foreground mb-2">Team Management</h2>
+                            <p class="text-muted-foreground">Manage your research team members and their access</p>
+                        </div>
+                        <button class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 flex items-center space-x-2">
+                            <i class="fas fa-plus"></i>
+                            <span>Add Team Member</span>
+                        </button>
+                    </div>
+
+                    <!-- Team Members Table -->
+                    <div class="bg-card border border-border rounded-lg overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-muted">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Member</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Projects</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Hours This Week</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-card divide-y divide-border" data-mock="true">
+                                    <!-- @MAP: teamMembers.map(member => ( -->
+                                    <tr class="hover:bg-muted/50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                                                    <span class="text-sm font-medium text-primary-foreground">MC</span>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-foreground">Michael Chen</div>
+                                                    <div class="text-sm text-muted-foreground">michael.chen@university.edu</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                PhD Student
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                            Health Data Analysis, COVID-19 Study
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-foreground">12/20 hours</div>
+                                            <div class="w-full bg-muted rounded-full h-2">
+                                                <div class="bg-yellow-500 h-2 rounded-full" style="width: 60%"></div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                Behind Schedule
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-primary hover:text-primary/80 mr-3">View</button>
+                                            <button class="text-muted-foreground hover:text-foreground mr-3">Edit</button>
+                                            <button class="text-destructive hover:text-destructive/80">Remove</button>
+                                        </td>
+                                    </tr>
+
+                                    <tr class="hover:bg-muted/50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div class="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
+                                                    <span class="text-sm font-medium text-secondary-foreground">SW</span>
+                                                </div>
+                                                <div class="ml-4">
+                                                    <div class="text-sm font-medium text-foreground">Sarah Wilson</div>
+                                                    <div class="text-sm text-muted-foreground">sarah.wilson@university.edu</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                Postdoc
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                            Machine Learning Models, Data Pipeline
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm text-foreground">22/20 hours</div>
+                                            <div class="w-full bg-muted rounded-full h-2">
+                                                <div class="bg-green-500 h-2 rounded-full" style="width: 100%"></div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                On Track
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <button class="text-primary hover:text-primary/80 mr-3">View</button>
+                                            <button class="text-muted-foreground hover:text-foreground mr-3">Edit</button>
+                                            <button class="text-destructive hover:text-destructive/80">Remove</button>
+                                        </td>
+                                    </tr>
+                                    <!-- @END_MAP )) -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: ProfessorDashboard -->
+
+    <!-- @COMPONENT: StudentDashboard [Personal dashboard restricted to own data] -->
+    <div id="studentDashboard" class="view-section min-h-screen bg-background">
+        <!-- Header -->
+        <header class="bg-card border-b border-border px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                            <i class="fas fa-university text-sm text-primary-foreground"></i>
+                        </div>
+                        <h1 class="text-xl font-bold text-foreground">My Research Dashboard</h1>
+                    </div>
+                    <div class="bg-secondary/10 px-3 py-1 rounded-full">
+                        <span class="text-xs font-medium text-secondary">
+                            <i class="fas fa-user-graduate mr-1"></i>PhD Student
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <button class="relative p-2 text-muted-foreground hover:text-foreground">
+                        <i class="fas fa-bell"></i>
+                        <span class="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full text-xs text-destructive-foreground flex items-center justify-center">1</span>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <div class="text-right">
+                            <p class="text-sm font-medium" data-bind="user.name">Emma Rodriguez</p>
+                            <p class="text-xs text-muted-foreground" data-bind="user.year">3rd Year PhD</p>
+                        </div>
+                        <div class="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
+                            <span class="text-sm font-medium text-secondary-foreground">ER</span>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="p-2 text-muted-foreground hover:text-foreground">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex h-[calc(100vh-73px)]">
+            <!-- Sidebar Navigation -->
+            <nav class="w-64 bg-card border-r border-border p-4">
+                <div class="space-y-2">
+                    <a href="#" onclick="showStudentSection('dashboard')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm active">
+                        <i class="fas fa-chart-line w-4"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="#" onclick="showStudentSection('projects')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-project-diagram w-4"></i>
+                        <span>My Projects</span>
+                    </a>
+                    <a href="#" onclick="showStudentSection('schedule')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-calendar-alt w-4"></i>
+                        <span>Schedule</span>
+                    </a>
+                    <a href="#" onclick="showStudentSection('progress')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-tasks w-4"></i>
+                        <span>Progress</span>
+                    </a>
+                    <a href="#" onclick="showStudentSection('insights')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-lightbulb w-4"></i>
+                        <span>AI Insights</span>
+                    </a>
+                    <a href="#" onclick="showStudentSection('lab-stats')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-chart-bar w-4"></i>
+                        <span>Lab Statistics</span>
+                    </a>
+                </div>
+            </nav>
+
+            <!-- Main Content Area -->
+            <main class="flex-1 overflow-auto">
+                <!-- Student Dashboard Overview -->
+                <div id="student-dashboard" class="student-section p-6">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-foreground mb-2">Welcome back, Emma!</h2>
+                        <p class="text-muted-foreground">Here's your research progress and upcoming tasks</p>
+                    </div>
+
+                    <!-- Personal Metrics -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">Hours This Week</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="student.weeklyHours">18.5</p>
+                                    <p class="text-xs text-muted-foreground">of 20 required</p>
+                                </div>
+                                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-clock text-green-600"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">Active Projects</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="student.activeProjects">2</p>
+                                    <p class="text-xs text-muted-foreground">in progress</p>
+                                </div>
+                                <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-project-diagram text-primary"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">Upcoming Deadlines</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="student.upcomingDeadlines">3</p>
+                                    <p class="text-xs text-muted-foreground">next 2 weeks</p>
+                                </div>
+                                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-calendar-alt text-yellow-600"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">Productivity Score</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="student.productivityScore">87%</p>
+                                    <p class="text-xs text-green-600">↑ 5% from last week</p>
+                                </div>
+                                <div class="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-chart-line text-secondary"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Today's Schedule & Quick Actions -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <!-- Today's Schedule -->
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center">
+                                <i class="fas fa-calendar-day text-primary mr-2"></i>
+                                Today's Schedule
+                            </h3>
+                            <div class="space-y-3">
+                                <!-- @MAP: todaySchedule.map(block => ( -->
+                                <div class="flex items-center justify-between p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-3 h-8 bg-primary rounded-full"></div>
+                                        <div>
+                                            <p class="text-sm font-medium">Data Analysis Session</p>
+                                            <p class="text-xs text-muted-foreground">9:00 AM - 12:00 PM • Lab</p>
+                                        </div>
+                                    </div>
+                                    <button class="bg-primary text-primary-foreground px-3 py-1 rounded text-xs hover:bg-primary/90">
+                                        Check In
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center justify-between p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-3 h-8 bg-secondary rounded-full"></div>
+                                        <div>
+                                            <p class="text-sm font-medium">Literature Review</p>
+                                            <p class="text-xs text-muted-foreground">2:00 PM - 4:00 PM • Remote</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs text-muted-foreground">Upcoming</span>
+                                </div>
+
+                                <div class="flex items-center justify-between p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-3 h-8 bg-accent-foreground rounded-full"></div>
+                                        <div>
+                                            <p class="text-sm font-medium">Team Meeting</p>
+                                            <p class="text-xs text-muted-foreground">4:30 PM - 5:30 PM • Zoom</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs text-muted-foreground">Upcoming</span>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <h3 class="text-lg font-semibold mb-4">Quick Actions</h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button class="p-4 bg-primary/10 border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors text-left">
+                                    <i class="fas fa-plus text-primary mb-2"></i>
+                                    <p class="text-sm font-medium text-primary">Update Progress</p>
+                                </button>
+                                <button class="p-4 bg-secondary/10 border border-secondary/20 rounded-lg hover:bg-secondary/20 transition-colors text-left">
+                                    <i class="fas fa-calendar text-secondary mb-2"></i>
+                                    <p class="text-sm font-medium text-secondary">Submit Schedule</p>
+                                </button>
+                                <button class="p-4 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-left">
+                                    <i class="fas fa-clock text-green-600 mb-2"></i>
+                                    <p class="text-sm font-medium text-green-600">Log Hours</p>
+                                </button>
+                                <button class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors text-left">
+                                    <i class="fas fa-question-circle text-yellow-600 mb-2"></i>
+                                    <p class="text-sm font-medium text-yellow-600">Get Help</p>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Project Progress Overview -->
+                    <div class="bg-card border border-border rounded-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4">Project Progress</h3>
+                        <div class="space-y-6">
+                            <!-- @MAP: userProjects.map(project => ( -->
+                            <div class="border border-border rounded-lg p-4" data-mock="true">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-semibold text-foreground">Health Data Analysis - African Populations</h4>
+                                    <span class="text-xs text-muted-foreground">Due: Feb 15, 2024</span>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="flex justify-between text-xs text-muted-foreground mb-1">
+                                        <span>Overall Progress</span>
+                                        <span>73%</span>
+                                    </div>
+                                    <div class="w-full bg-muted rounded-full h-2">
+                                        <div class="bg-primary h-2 rounded-full" style="width: 73%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-3 gap-4 text-xs">
+                                    <div>
+                                        <p class="text-muted-foreground mb-1">Literature Review</p>
+                                        <div class="w-full bg-muted rounded-full h-1">
+                                            <div class="bg-green-500 h-1 rounded-full" style="width: 100%"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p class="text-muted-foreground mb-1">Data Analysis</p>
+                                        <div class="w-full bg-muted rounded-full h-1">
+                                            <div class="bg-primary h-1 rounded-full" style="width: 65%"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p class="text-muted-foreground mb-1">Writing</p>
+                                        <div class="w-full bg-muted rounded-full h-1">
+                                            <div class="bg-yellow-500 h-1 rounded-full" style="width: 30%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="border border-border rounded-lg p-4" data-mock="true">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-sm font-semibold text-foreground">COVID-19 Impact Study</h4>
+                                    <span class="text-xs text-muted-foreground">Due: Mar 1, 2024</span>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="flex justify-between text-xs text-muted-foreground mb-1">
+                                        <span>Overall Progress</span>
+                                        <span>45%</span>
+                                    </div>
+                                    <div class="w-full bg-muted rounded-full h-2">
+                                        <div class="bg-secondary h-2 rounded-full" style="width: 45%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-3 gap-4 text-xs">
+                                    <div>
+                                        <p class="text-muted-foreground mb-1">Data Collection</p>
+                                        <div class="w-full bg-muted rounded-full h-1">
+                                            <div class="bg-green-500 h-1 rounded-full" style="width: 80%"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p class="text-muted-foreground mb-1">Preprocessing</p>
+                                        <div class="w-full bg-muted rounded-full h-1">
+                                            <div class="bg-yellow-500 h-1 rounded-full" style="width: 40%"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p class="text-muted-foreground mb-1">Analysis</p>
+                                        <div class="w-full bg-muted rounded-full h-1">
+                                            <div class="bg-muted h-1 rounded-full" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- @END_MAP )) -->
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: StudentDashboard -->
+
+    <!-- @COMPONENT: PostdocDashboard [Enhanced permissions with mentorship capabilities] -->
+    <div id="postdocDashboard" class="view-section min-h-screen bg-background">
+        <!-- Header -->
+        <header class="bg-card border-b border-border px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                            <i class="fas fa-university text-sm text-primary-foreground"></i>
+                        </div>
+                        <h1 class="text-xl font-bold text-foreground">Research Hub</h1>
+                    </div>
+                    <div class="bg-green-100 px-3 py-1 rounded-full">
+                        <span class="text-xs font-medium text-green-800">
+                            <i class="fas fa-user-check mr-1"></i>Postdoc
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <button class="relative p-2 text-muted-foreground hover:text-foreground">
+                        <i class="fas fa-bell"></i>
+                        <span class="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full text-xs text-destructive-foreground flex items-center justify-center">2</span>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <div class="text-right">
+                            <p class="text-sm font-medium" data-bind="user.name">Dr. Alex Kim</p>
+                            <p class="text-xs text-muted-foreground" data-bind="user.specialization">ML Specialist</p>
+                        </div>
+                        <div class="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                            <span class="text-sm font-medium text-white">AK</span>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="p-2 text-muted-foreground hover:text-foreground">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex h-[calc(100vh-73px)]">
+            <!-- Sidebar Navigation -->
+            <nav class="w-64 bg-card border-r border-border p-4">
+                <div class="space-y-2">
+                    <a href="#" onclick="showPostdocSection('dashboard')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm active">
+                        <i class="fas fa-chart-line w-4"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="#" onclick="showPostdocSection('projects')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-project-diagram w-4"></i>
+                        <span>My Projects</span>
+                    </a>
+                    <a href="#" onclick="showPostdocSection('mentorship')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-user-friends w-4"></i>
+                        <span>Mentorship</span>
+                    </a>
+                    <a href="#" onclick="showPostdocSection('team-analytics')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-chart-bar w-4"></i>
+                        <span>Team Analytics</span>
+                    </a>
+                    <a href="#" onclick="showPostdocSection('schedule')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-calendar-alt w-4"></i>
+                        <span>Schedule</span>
+                    </a>
+                    <a href="#" onclick="showPostdocSection('lab-overview')" class="sidebar-nav flex items-center space-x-3 px-3 py-2 rounded-md hover:bg-accent text-sm">
+                        <i class="fas fa-microscope w-4"></i>
+                        <span>Lab Overview</span>
+                    </a>
+                </div>
+            </nav>
+
+            <!-- Main Content Area -->
+            <main class="flex-1 overflow-auto">
+                <!-- Postdoc Dashboard Overview -->
+                <div id="postdoc-dashboard" class="postdoc-section p-6">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold text-foreground mb-2">Welcome back, Dr. Kim!</h2>
+                        <p class="text-muted-foreground">Your research projects and mentorship overview</p>
+                    </div>
+
+                    <!-- Enhanced Metrics for Postdoc -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">Active Projects</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="postdoc.activeProjects">4</p>
+                                    <p class="text-xs text-muted-foreground">leading 2 teams</p>
+                                </div>
+                                <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-project-diagram text-primary"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">Mentoring</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="postdoc.mentees">3</p>
+                                    <p class="text-xs text-muted-foreground">graduate students</p>
+                                </div>
+                                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user-friends text-green-600"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">Publications</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="postdoc.publications">2</p>
+                                    <p class="text-xs text-muted-foreground">in review</p>
+                                </div>
+                                <div class="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-file-alt text-secondary"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-muted-foreground">Team Performance</p>
+                                    <p class="text-2xl font-bold text-foreground" data-bind="postdoc.teamPerformance">92%</p>
+                                    <p class="text-xs text-green-600">↑ 3% this month</p>
+                                </div>
+                                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-trophy text-yellow-600"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mentorship Overview -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <!-- Mentees Status -->
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center">
+                                <i class="fas fa-users text-green-600 mr-2"></i>
+                                Mentees Progress
+                            </h3>
+                            <div class="space-y-4">
+                                <!-- @MAP: mentees.map(mentee => ( -->
+                                <div class="flex items-center justify-between p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                                            <span class="text-xs font-medium text-primary-foreground">JD</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium">John Davis</p>
+                                            <p class="text-xs text-muted-foreground">ML Model Development - 78% complete</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="w-16 bg-muted rounded-full h-2 mb-1">
+                                            <div class="bg-green-500 h-2 rounded-full" style="width: 78%"></div>
+                                        </div>
+                                        <span class="text-xs text-green-600">On Track</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center justify-between p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
+                                            <span class="text-xs font-medium text-secondary-foreground">LT</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium">Lisa Thompson</p>
+                                            <p class="text-xs text-muted-foreground">Data Pipeline - 45% complete</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="w-16 bg-muted rounded-full h-2 mb-1">
+                                            <div class="bg-yellow-500 h-2 rounded-full" style="width: 45%"></div>
+                                        </div>
+                                        <span class="text-xs text-yellow-600">Needs Support</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center justify-between p-3 bg-muted rounded-md" data-mock="true">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-10 h-10 bg-accent rounded-full flex items-center justify-center">
+                                            <span class="text-xs font-medium text-accent-foreground">MW</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium">Mark Wilson</p>
+                                            <p class="text-xs text-muted-foreground">Statistical Analysis - 89% complete</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="w-16 bg-muted rounded-full h-2 mb-1">
+                                            <div class="bg-green-500 h-2 rounded-full" style="width: 89%"></div>
+                                        </div>
+                                        <span class="text-xs text-green-600">Excellent</span>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+
+                        <!-- Project Leadership -->
+                        <div class="bg-card border border-border rounded-lg p-6">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center">
+                                <i class="fas fa-crown text-yellow-600 mr-2"></i>
+                                Leading Projects
+                            </h3>
+                            <div class="space-y-4">
+                                <!-- @MAP: leadingProjects.map(project => ( -->
+                                <div class="border border-border rounded-lg p-4" data-mock="true">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h4 class="text-sm font-semibold">Deep Learning Healthcare Models</h4>
+                                        <span class="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Leading</span>
+                                    </div>
+                                    <p class="text-xs text-muted-foreground mb-2">Team of 4 • Due: March 15, 2024</p>
+                                    <div class="w-full bg-muted rounded-full h-2">
+                                        <div class="bg-primary h-2 rounded-full" style="width: 67%"></div>
+                                    </div>
+                                    <div class="flex justify-between text-xs text-muted-foreground mt-1">
+                                        <span>Progress: 67%</span>
+                                        <span>4 weeks remaining</span>
+                                    </div>
+                                </div>
+
+                                <div class="border border-border rounded-lg p-4" data-mock="true">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h4 class="text-sm font-semibold">African Health Data Initiative</h4>
+                                        <span class="text-xs bg-secondary/10 text-secondary px-2 py-1 rounded">Co-Lead</span>
+                                    </div>
+                                    <p class="text-xs text-muted-foreground mb-2">Team of 6 • Due: April 30, 2024</p>
+                                    <div class="w-full bg-muted rounded-full h-2">
+                                        <div class="bg-secondary h-2 rounded-full" style="width: 34%"></div>
+                                    </div>
+                                    <div class="flex justify-between text-xs text-muted-foreground mt-1">
+                                        <span>Progress: 34%</span>
+                                        <span>8 weeks remaining</span>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activities and Notifications -->
+                    <div class="bg-card border border-border rounded-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4">Recent Activities & AI Suggestions</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Recent Activities -->
+                            <div>
+                                <h4 class="text-sm font-medium text-muted-foreground mb-3">Team Updates</h4>
+                                <div class="space-y-3">
+                                    <!-- @MAP: recentActivities.map(activity => ( -->
+                                    <div class="flex items-start space-x-3" data-mock="true">
+                                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-check text-green-600 text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-foreground">John Davis completed model validation phase</p>
+                                            <p class="text-xs text-muted-foreground">2 hours ago</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-start space-x-3" data-mock="true">
+                                        <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-clock text-yellow-600 text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-foreground">Lisa Thompson requested feedback on data preprocessing</p>
+                                            <p class="text-xs text-muted-foreground">5 hours ago</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-start space-x-3" data-mock="true">
+                                        <div class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <i class="fas fa-calendar text-primary text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-foreground">Weekly team meeting scheduled for tomorrow</p>
+                                            <p class="text-xs text-muted-foreground">1 day ago</p>
+                                        </div>
+                                    </div>
+                                    <!-- @END_MAP )) -->
+                                </div>
+                            </div>
+
+                            <!-- AI Suggestions -->
+                            <div>
+                                <h4 class="text-sm font-medium text-muted-foreground mb-3">AI Insights & Suggestions</h4>
+                                <div class="space-y-3">
+                                    <!-- @MAP: aiSuggestions.map(suggestion => ( -->
+                                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-md" data-mock="true">
+                                        <div class="flex items-center space-x-2 mb-1">
+                                            <i class="fas fa-lightbulb text-blue-600"></i>
+                                            <span class="text-xs font-medium text-blue-600">Productivity Insight</span>
+                                        </div>
+                                        <p class="text-sm text-foreground">Lisa Thompson works 40% more efficiently during morning sessions. Consider scheduling complex tasks early.</p>
+                                    </div>
+
+                                    <div class="p-3 bg-green-50 border border-green-200 rounded-md" data-mock="true">
+                                        <div class="flex items-center space-x-2 mb-1">
+                                            <i class="fas fa-users text-green-600"></i>
+                                            <span class="text-xs font-medium text-green-600">Collaboration Tip</span>
+                                        </div>
+                                        <p class="text-sm text-foreground">Your mentorship style significantly improves student retention. Consider documenting your approach for lab guidelines.</p>
+                                    </div>
+
+                                    <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-md" data-mock="true">
+                                        <div class="flex items-center space-x-2 mb-1">
+                                            <i class="fas fa-exclamation-triangle text-yellow-600"></i>
+                                            <span class="text-xs font-medium text-yellow-600">Attention Needed</span>
+                                        </div>
+                                        <p class="text-sm text-foreground">Mark Wilson's recent updates indicate possible stress. Consider a one-on-one check-in this week.</p>
+                                    </div>
+                                    <!-- @END_MAP )) -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: PostdocDashboard -->
+
+    <script>
+        // @TODO: Implement business logic, API calls, and state management
+        
+        // Navigation Functions
+        (function() {
+            function loginAs(role) {
+                // Hide login screen
+                document.getElementById('loginScreen').classList.remove('active');
+                
+                // Show appropriate dashboard
+                if (role === 'professor') {
+                    document.getElementById('professorDashboard').classList.add('active');
+                } else if (role === 'student') {
+                    document.getElementById('studentDashboard').classList.add('active');
+                } else if (role === 'postdoc') {
+                    document.getElementById('postdocDashboard').classList.add('active');
+                }
+            }
+
+            function logout() {
+                // Hide all dashboards
+                document.querySelectorAll('.view-section').forEach(section => {
+                    section.classList.remove('active');
+                });
+                
+                // Show login screen
+                document.getElementById('loginScreen').classList.add('active');
+            }
+
+            function showForgotPassword() {
+                document.getElementById('forgotPasswordModal').classList.remove('hidden');
+            }
+
+            function hideForgotPassword() {
+                document.getElementById('forgotPasswordModal').classList.add('hidden');
+            }
+
+            function showProfessorSection(sectionName) {
+                // Hide all professor sections
+                document.querySelectorAll('.professor-section').forEach(section => {
+                    section.classList.add('hidden');
+                });
+                
+                // Show selected section
+                document.getElementById('prof-' + sectionName).classList.remove('hidden');
+                
+                // Update navigation
+                document.querySelectorAll('#professorDashboard .sidebar-nav').forEach(nav => {
+                    nav.classList.remove('active');
+                });
+                event.target.classList.add('active');
+            }
+
+            function showStudentSection(sectionName) {
+                // Hide all student sections
+                document.querySelectorAll('.student-section').forEach(section => {
+                    section.classList.add('hidden');
+                });
+                
+                // Show selected section
+                document.getElementById('student-' + sectionName).classList.remove('hidden');
+                
+                // Update navigation
+                document.querySelectorAll('#studentDashboard .sidebar-nav').forEach(nav => {
+                    nav.classList.remove('active');
+                });
+                event.target.classList.add('active');
+            }
+
+            function showPostdocSection(sectionName) {
+                // Hide all postdoc sections
+                document.querySelectorAll('.postdoc-section').forEach(section => {
+                    section.classList.add('hidden');
+                });
+                
+                // Show selected section
+                document.getElementById('postdoc-' + sectionName).classList.remove('hidden');
+                
+                // Update navigation
+                document.querySelectorAll('#postdocDashboard .sidebar-nav').forEach(nav => {
+                    nav.classList.remove('active');
+                });
+                event.target.classList.add('active');
+            }
+
+            // Make functions globally available
+            window.loginAs = loginAs;
+            window.logout = logout;
+            window.showForgotPassword = showForgotPassword;
+            window.hideForgotPassword = hideForgotPassword;
+            window.showProfessorSection = showProfessorSection;
+            window.showStudentSection = showStudentSection;
+            window.showPostdocSection = showPostdocSection;
+        })();
+
+        // Real-time updates simulation
+        (function() {
+            function simulateRealTimeUpdates() {
+                // Simulate real-time activity updates
+                // This would be replaced with WebSocket connections or polling in production
+                
+                setInterval(() => {
+                    // Update time logged for currently working students
+                    const timeElements = document.querySelectorAll('[data-bind*="hours"]');
+                    // timeElements.forEach(el => updateTimeDisplay(el));
+                }, 30000); // Update every 30 seconds
+            }
+
+            // Initialize simulations when page loads
+            document.addEventListener('DOMContentLoaded', simulateRealTimeUpdates);
+        })();
+
+        // Notification handling
+        (function() {
+            function markNotificationAsRead(notificationId) {
+                // TODO: API call to mark notification as read
+                console.log('Marking notification as read:', notificationId);
+            }
+
+            function showNotificationPanel() {
+                // TODO: Show notification dropdown/panel
+                console.log('Showing notification panel');
+            }
+
+            // Attach click handlers to notification bells
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('[class*="bell"]').forEach(bell => {
+                    bell.addEventListener('click', showNotificationPanel);
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

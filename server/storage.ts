@@ -7,6 +7,10 @@ import {
   projectTasks,
   taskAssignments,
   taskCompletions,
+  workSchedules,
+  scheduleBlocks,
+  timeEntries,
+  timeLogs,
   type User,
   type InsertUser,
   type CreateUserInput,
@@ -24,6 +28,14 @@ import {
   type InsertTaskAssignment,
   type TaskCompletion,
   type InsertTaskCompletion,
+  type WorkSchedule,
+  type InsertWorkSchedule,
+  type ScheduleBlock,
+  type InsertScheduleBlock,
+  type TimeEntry,
+  type InsertTimeEntry,
+  type TimeLog,
+  type InsertTimeLog,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { db } from "./db";
@@ -75,10 +87,20 @@ export interface IStorage {
   approveTimeEntry(entryId: string, approverId: string): Promise<any>;
 
   // Work schedule operations
-  createWorkSchedule(schedule: any): Promise<any>;
-  getAllWorkSchedules(weekStart?: string): Promise<any[]>;
-  getUserWorkSchedules(userId: string, weekStart?: string): Promise<any[]>;
-  approveWorkSchedule(scheduleId: string, approverId: string): Promise<any>;
+  createWorkSchedule(schedule: InsertWorkSchedule): Promise<WorkSchedule>;
+  getAllWorkSchedules(weekStart?: string): Promise<WorkSchedule[]>;
+  getUserWorkSchedules(userId: string, weekStart?: string): Promise<WorkSchedule[]>;
+  approveWorkSchedule(scheduleId: string, approverId: string): Promise<WorkSchedule | undefined>;
+  
+  // Schedule block operations
+  createScheduleBlock(block: InsertScheduleBlock): Promise<ScheduleBlock>;
+  getScheduleBlocks(scheduleId: string): Promise<ScheduleBlock[]>;
+  updateScheduleBlock(id: string, updates: Partial<InsertScheduleBlock>): Promise<ScheduleBlock | undefined>;
+  deleteScheduleBlock(id: string): Promise<boolean>;
+  
+  // Schedule validation operations
+  validateWeeklySchedule(userId: string, weekStart: string): Promise<{ isValid: boolean; totalHours: number; violations: string[] }>;
+  getScheduleCompliance(userId?: string): Promise<any>;
 
   // Report operations
   createReport(reportData: any): Promise<any>;
@@ -323,24 +345,193 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Work schedule methods
-  async createWorkSchedule(schedule: any): Promise<any> {
-    // For Phase 4 implementation - stub for now
-    return { id: "temp-id", ...schedule };
+  async createWorkSchedule(schedule: InsertWorkSchedule): Promise<WorkSchedule> {
+    const [newSchedule] = await db.insert(workSchedules).values(schedule).returning();
+    return newSchedule;
   }
 
-  async getAllWorkSchedules(weekStart?: string): Promise<any[]> {
-    // For Phase 4 implementation - return empty array for now
-    return [];
+  async getAllWorkSchedules(weekStart?: string): Promise<WorkSchedule[]> {
+    let query = db.select().from(workSchedules).orderBy(desc(workSchedules.createdAt));
+    
+    if (weekStart) {
+      query = query.where(eq(workSchedules.weekStartDate, weekStart));
+    }
+    
+    return await query;
   }
 
-  async getUserWorkSchedules(userId: string, weekStart?: string): Promise<any[]> {
-    // For Phase 4 implementation - return empty array for now
-    return [];
+  async getUserWorkSchedules(userId: string, weekStart?: string): Promise<WorkSchedule[]> {
+    const whereConditions = [eq(workSchedules.userId, userId)];
+    
+    if (weekStart) {
+      whereConditions.push(eq(workSchedules.weekStartDate, weekStart));
+    }
+    
+    return await db.select()
+      .from(workSchedules)
+      .where(and(...whereConditions))
+      .orderBy(desc(workSchedules.createdAt));
   }
 
-  async approveWorkSchedule(scheduleId: string, approverId: string): Promise<any> {
-    // For Phase 4 implementation - stub for now
-    return { id: scheduleId, approved: true, approvedBy: approverId };
+  async approveWorkSchedule(scheduleId: string, approverId: string): Promise<WorkSchedule | undefined> {
+    const [schedule] = await db
+      .update(workSchedules)
+      .set({ 
+        approved: true, 
+        approvedBy: approverId, 
+        approvedAt: new Date(),
+        status: 'approved',
+        updatedAt: new Date()
+      })
+      .where(eq(workSchedules.id, scheduleId))
+      .returning();
+    return schedule;
+  }
+  
+  // Schedule block operations
+  async createScheduleBlock(block: InsertScheduleBlock): Promise<ScheduleBlock> {
+    const [newBlock] = await db.insert(scheduleBlocks).values(block).returning();
+    return newBlock;
+  }
+  
+  async getScheduleBlocks(scheduleId: string): Promise<ScheduleBlock[]> {
+    return await db
+      .select()
+      .from(scheduleBlocks)
+      .where(eq(scheduleBlocks.scheduleId, scheduleId))
+      .orderBy(scheduleBlocks.dayOfWeek, scheduleBlocks.startTime);
+  }
+  
+  async updateScheduleBlock(id: string, updates: Partial<InsertScheduleBlock>): Promise<ScheduleBlock | undefined> {
+    const [block] = await db
+      .update(scheduleBlocks)
+      .set(updates)
+      .where(eq(scheduleBlocks.id, id))
+      .returning();
+    return block;
+  }
+  
+  async deleteScheduleBlock(id: string): Promise<boolean> {
+    const result = await db.delete(scheduleBlocks).where(eq(scheduleBlocks.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+  
+  // Schedule validation operations
+  async validateWeeklySchedule(userId: string, weekStart: string): Promise<{ isValid: boolean; totalHours: number; violations: string[] }> {
+    const schedules = await this.getUserWorkSchedules(userId, weekStart);
+    const violations: string[] = [];
+    let totalHours = 0;
+    
+    // Get minimum required hours from environment (default 20)
+    const minWeeklyHours = parseInt(process.env.MINIMUM_WEEKLY_HOURS || '20');
+    
+    for (const schedule of schedules) {
+      // Get schedule blocks for this schedule
+      const blocks = await this.getScheduleBlocks(schedule.id);
+      
+      // Calculate total hours from actual blocks (more accurate than stored value)
+      let scheduleHours = 0;
+      for (const block of blocks) {
+        if (block.startTime && block.endTime) {
+          scheduleHours += this.calculateBlockDuration(block.startTime, block.endTime);
+        }
+      }
+      totalHours += scheduleHours;
+      
+      // Validate schedule blocks don't overlap
+      for (let i = 0; i < blocks.length; i++) {
+        for (let j = i + 1; j < blocks.length; j++) {
+          const block1 = blocks[i];
+          const block2 = blocks[j];
+          
+          if (block1.dayOfWeek === block2.dayOfWeek) {
+            const start1 = block1.startTime || '00:00';
+            const end1 = block1.endTime || '00:00';
+            const start2 = block2.startTime || '00:00';
+            const end2 = block2.endTime || '00:00';
+            
+            if (this.timePeriodsOverlap(start1, end1, start2, end2)) {
+              violations.push(`Overlapping time blocks on ${block1.dayOfWeek}`);
+            }
+          }
+        }
+      }
+    }
+    
+    // Check minimum hours requirement
+    if (totalHours < minWeeklyHours) {
+      violations.push(`Weekly schedule must include at least ${minWeeklyHours} hours (current: ${totalHours.toFixed(1)})`);
+    }
+    
+    return {
+      isValid: violations.length === 0,
+      totalHours: parseFloat(totalHours.toFixed(1)),
+      violations
+    };
+  }
+  
+  private calculateBlockDuration(startTime: string, endTime: string): number {
+    const parseTime = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    
+    const startMinutes = parseTime(startTime);
+    const endMinutes = parseTime(endTime);
+    
+    // Handle overnight shifts (end time next day)
+    if (endMinutes <= startMinutes) {
+      return ((24 * 60) + endMinutes - startMinutes) / 60;
+    }
+    
+    return (endMinutes - startMinutes) / 60;
+  }
+
+  private timePeriodsOverlap(start1: string, end1: string, start2: string, end2: string): boolean {
+    const parseTime = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    
+    const s1 = parseTime(start1);
+    const e1 = parseTime(end1);
+    const s2 = parseTime(start2);
+    const e2 = parseTime(end2);
+    
+    return s1 < e2 && s2 < e1;
+  }
+  
+  async getScheduleCompliance(userId?: string): Promise<any> {
+    let query = db.select({
+      userId: workSchedules.userId,
+      weekStartDate: workSchedules.weekStartDate,
+      totalScheduledHours: workSchedules.totalScheduledHours,
+      approved: workSchedules.approved,
+      status: workSchedules.status,
+      firstName: users.firstName,
+      lastName: users.lastName
+    })
+    .from(workSchedules)
+    .innerJoin(users, eq(workSchedules.userId, users.id))
+    .orderBy(desc(workSchedules.weekStartDate), users.firstName);
+    
+    if (userId) {
+      query = query.where(eq(workSchedules.userId, userId));
+    }
+    
+    const schedules = await query;
+    const minWeeklyHours = parseInt(process.env.MINIMUM_WEEKLY_HOURS || '20');
+    
+    return schedules.map(schedule => ({
+      userId: schedule.userId,
+      userName: `${schedule.firstName} ${schedule.lastName}`,
+      weekStartDate: schedule.weekStartDate,
+      totalHours: parseFloat(schedule.totalScheduledHours?.toString() || '0'),
+      approved: schedule.approved,
+      status: schedule.status,
+      compliant: parseFloat(schedule.totalScheduledHours?.toString() || '0') >= minWeeklyHours,
+      requiresAttention: schedule.status === 'submitted' || !schedule.approved
+    }));
   }
 
   // Report methods

@@ -219,6 +219,12 @@ export type InsertProgressUpdate = typeof progressUpdates.$inferInsert;
 export type ProgressUpdate = typeof progressUpdates.$inferSelect;
 export type InsertWorkSchedule = typeof workSchedules.$inferInsert;
 export type WorkSchedule = typeof workSchedules.$inferSelect;
+export type InsertTimeEntry = typeof timeEntries.$inferInsert;
+export type TimeEntry = typeof timeEntries.$inferSelect;
+export type InsertScheduleBlock = typeof scheduleBlocks.$inferInsert;
+export type ScheduleBlock = typeof scheduleBlocks.$inferSelect;
+export type InsertTimeLog = typeof timeLogs.$inferInsert;
+export type TimeLog = typeof timeLogs.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertProjectTask = typeof projectTasks.$inferInsert;
@@ -263,6 +269,27 @@ export const insertTaskAssignmentSchema = createInsertSchema(taskAssignments).om
 export const insertTaskCompletionSchema = createInsertSchema(taskCompletions).omit({
   id: true,
   completedAt: true,
+});
+
+export const insertWorkScheduleSchema = createInsertSchema(workSchedules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertScheduleBlockSchema = createInsertSchema(scheduleBlocks).omit({
+  id: true,
+});
+
+export const insertTimeLogSchema = createInsertSchema(timeLogs).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const createUserSchema = z.object({

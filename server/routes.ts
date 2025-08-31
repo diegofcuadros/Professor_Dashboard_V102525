@@ -1,7 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
 import { setupAuth, isAuthenticated, requireRole } from "./auth";
+import { workSchedules } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { 
   insertProjectSchema, 
   insertProjectAssignmentSchema, 
@@ -10,12 +13,24 @@ import {
   insertProjectTaskSchema,
   insertTaskAssignmentSchema,
   insertTaskCompletionSchema,
+  insertWorkScheduleSchema,
+  insertScheduleBlockSchema,
   createUserSchema,
   loginSchema
 } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for Docker
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      version: process.env.npm_package_version || '1.0.0'
+    });
+  });
+
   // Auth middleware
   await setupAuth(app);
 
@@ -349,6 +364,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/ai/insights/user/:userId', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const targetUserId = req.params.userId;
+
+      if (targetUserId !== currentUser.id && 
+          currentUser.role !== 'admin' && 
+          currentUser.role !== 'professor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { aiEngine } = await import("./ai-engine");
+      const insights = await aiEngine.generateInsights(targetUserId);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating user insights:", error);
+      res.status(500).json({ message: "Failed to generate user insights" });
+    }
+  });
+
   app.get('/api/ai/productivity/:userId', isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user!;
@@ -382,6 +417,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating recommendations:", error);
       res.status(500).json({ message: "Failed to generate recommendations" });
+    }
+  });
+
+  app.get('/api/ai/schedule-optimization/:userId', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const targetUserId = req.params.userId;
+
+      if (targetUserId !== currentUser.id && 
+          currentUser.role !== 'admin' && 
+          currentUser.role !== 'professor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { aiEngine } = await import("./ai-engine");
+      const optimization = await aiEngine.generateScheduleOptimization(targetUserId);
+      res.json(optimization);
+    } catch (error) {
+      console.error("Error generating schedule optimization:", error);
+      res.status(500).json({ message: "Failed to generate schedule optimization" });
+    }
+  });
+
+  app.get('/api/ai/project-progress/:projectId', isAuthenticated, async (req, res) => {
+    try {
+      const projectId = req.params.projectId;
+      
+      // Check if user has access to this project
+      const currentUser = req.user!;
+      if (currentUser.role !== 'admin' && currentUser.role !== 'professor') {
+        const userProjects = await storage.getUserProjects(currentUser.id);
+        const hasAccess = userProjects.some(p => p.id === projectId);
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+
+      const { aiEngine } = await import("./ai-engine");
+      const analysis = await aiEngine.analyzeProjectProgress(projectId);
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error analyzing project progress:", error);
+      res.status(500).json({ message: "Failed to analyze project progress" });
     }
   });
 
@@ -459,14 +537,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/work-schedules', isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user!;
-      const scheduleData = {
+      
+      // Validate the schedule data
+      const validatedData = insertWorkScheduleSchema.parse({
         ...req.body,
         userId: currentUser.id
-      };
+      });
       
-      const schedule = await storage.createWorkSchedule(scheduleData);
+      // Create the schedule first (validation will be done when schedule blocks are added)
+      const schedule = await storage.createWorkSchedule(validatedData);
       res.status(201).json(schedule);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid schedule data", errors: error.errors });
+      }
       console.error("Error creating work schedule:", error);
       res.status(500).json({ message: "Failed to create work schedule" });
     }
@@ -482,6 +566,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error approving work schedule:", error);
       res.status(500).json({ message: "Failed to approve work schedule" });
+    }
+  });
+
+  // Schedule submission route (validates before submission)
+  app.put('/api/work-schedules/:id/submit', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const scheduleId = req.params.id;
+      
+      // Verify the schedule belongs to the current user
+      const schedules = await storage.getUserWorkSchedules(currentUser.id);
+      const schedule = schedules.find(s => s.id === scheduleId);
+      
+      if (!schedule) {
+        return res.status(404).json({ message: "Schedule not found" });
+      }
+      
+      if (schedule.userId !== currentUser.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Validate schedule before submission
+      const validation = await storage.validateWeeklySchedule(currentUser.id, schedule.weekStartDate);
+      if (!validation.isValid) {
+        return res.status(400).json({ 
+          message: "Schedule validation failed", 
+          violations: validation.violations 
+        });
+      }
+      
+      // Update schedule status to submitted
+      const [updatedSchedule] = await db
+        .update(workSchedules)
+        .set({ 
+          status: 'submitted',
+          totalScheduledHours: validation.totalHours,
+          updatedAt: new Date()
+        })
+        .where(eq(workSchedules.id, scheduleId))
+        .returning();
+      
+      res.json(updatedSchedule);
+    } catch (error) {
+      console.error("Error submitting schedule:", error);
+      res.status(500).json({ message: "Failed to submit schedule" });
+    }
+  });
+
+  // Schedule Block Routes
+  app.post('/api/work-schedules/:scheduleId/blocks', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const scheduleId = req.params.scheduleId;
+      
+      // Validate the block data
+      const validatedData = insertScheduleBlockSchema.parse({
+        ...req.body,
+        scheduleId
+      });
+      
+      // Verify the schedule belongs to the current user (unless admin/professor)
+      if (currentUser.role !== 'admin' && currentUser.role !== 'professor') {
+        const schedules = await storage.getUserWorkSchedules(currentUser.id);
+        const ownsSchedule = schedules.some(s => s.id === scheduleId);
+        if (!ownsSchedule) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      
+      const block = await storage.createScheduleBlock(validatedData);
+      res.status(201).json(block);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid schedule block data", errors: error.errors });
+      }
+      console.error("Error creating schedule block:", error);
+      res.status(500).json({ message: "Failed to create schedule block" });
+    }
+  });
+
+  app.get('/api/work-schedules/:scheduleId/blocks', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const scheduleId = req.params.scheduleId;
+      
+      // Verify access to schedule
+      if (currentUser.role !== 'admin' && currentUser.role !== 'professor') {
+        const schedules = await storage.getUserWorkSchedules(currentUser.id);
+        const ownsSchedule = schedules.some(s => s.id === scheduleId);
+        if (!ownsSchedule) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      
+      const blocks = await storage.getScheduleBlocks(scheduleId);
+      res.json(blocks);
+    } catch (error) {
+      console.error("Error fetching schedule blocks:", error);
+      res.status(500).json({ message: "Failed to fetch schedule blocks" });
+    }
+  });
+
+  // Schedule Compliance Routes
+  app.get('/api/schedule-compliance', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const userId = req.query.userId as string;
+      const compliance = await storage.getScheduleCompliance(userId);
+      res.json(compliance);
+    } catch (error) {
+      console.error("Error fetching schedule compliance:", error);
+      res.status(500).json({ message: "Failed to fetch schedule compliance" });
+    }
+  });
+
+  app.get('/api/schedule-validation/:userId', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const targetUserId = req.params.userId;
+      const weekStart = req.query.weekStart as string;
+      
+      // Users can only validate their own schedules unless they're admin/professor
+      if (targetUserId !== currentUser.id && 
+          currentUser.role !== 'admin' && 
+          currentUser.role !== 'professor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      if (!weekStart) {
+        return res.status(400).json({ message: "Week start date is required" });
+      }
+      
+      const validation = await storage.validateWeeklySchedule(targetUserId, weekStart);
+      res.json(validation);
+    } catch (error) {
+      console.error("Error validating schedule:", error);
+      res.status(500).json({ message: "Failed to validate schedule" });
     }
   });
 
