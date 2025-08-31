@@ -3,7 +3,8 @@ import { registerRoutes } from "./routes";
 import { initializeWebSocket } from "./websocket";
 import { setupVite, serveStatic, log } from "./vite";
 import { loadEnvironment } from "./env";
-import { setupWeeklyDigest } from "./cron";
+import { setupWeeklyDigest, setupOverdueTaskNotifications, setupProductivityAlerts, setupLabInsightsReport } from "./cron";
+import { progressMonitor } from "./progress-monitor";
 
 // Load environment variables
 loadEnvironment();
@@ -48,8 +49,14 @@ app.use((req, res, next) => {
   // Initialize WebSocket for real-time notifications
   initializeWebSocket(server);
 
-  // Start weekly digest cron
+  // Start all notification cron jobs
   setupWeeklyDigest();
+  setupOverdueTaskNotifications();
+  setupProductivityAlerts();
+  setupLabInsightsReport();
+
+  // Start real-time progress monitoring
+  progressMonitor.start();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

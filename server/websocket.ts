@@ -157,10 +157,43 @@ export class NotificationService {
   }
 }
 
+export class WebSocketService {
+  private static instance: WebSocketService | null = null;
+  private notificationService: NotificationService | null = null;
+
+  static getInstance(): WebSocketService {
+    if (!WebSocketService.instance) {
+      WebSocketService.instance = new WebSocketService();
+    }
+    return WebSocketService.instance;
+  }
+
+  setNotificationService(service: NotificationService) {
+    this.notificationService = service;
+  }
+
+  broadcastToRole(roles: string[], eventType: string, data: any) {
+    if (!this.notificationService) return;
+
+    for (const role of roles) {
+      this.notificationService.notifyRole(role, {
+        eventType,
+        data
+      });
+    }
+  }
+
+  broadcastUpdate(updateType: string, data: any) {
+    if (!this.notificationService) return;
+    this.notificationService.broadcastUpdate(updateType, data);
+  }
+}
+
 export let notificationService: NotificationService;
 
 export function initializeWebSocket(server: Server) {
   notificationService = new NotificationService(server);
+  WebSocketService.getInstance().setNotificationService(notificationService);
   console.log('WebSocket server initialized');
   return notificationService;
 }

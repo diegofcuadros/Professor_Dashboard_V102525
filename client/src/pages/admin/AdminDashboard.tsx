@@ -9,13 +9,15 @@ import Sidebar from "@/components/layout/Sidebar";
 import MetricCard from "@/components/dashboard/MetricCard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import TeamTable from "@/components/dashboard/TeamTable";
+import CommunicationDashboard from "@/components/communication/CommunicationDashboard";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Users, Projector, Clock, AlertTriangle, Bell, FolderOpen, Plus, Brain, Calendar, BarChart3, Settings } from "lucide-react";
+import { Users, Projector, Clock, AlertTriangle, Bell, FolderOpen, Plus, Brain, Calendar, BarChart3, Settings, MessageSquare } from "lucide-react";
 
 const adminSidebarItems = [
   { id: 'overview', label: 'Lab Overview', icon: 'chart-line' },
   { id: 'team', label: 'Team Management', icon: 'users' },
   { id: 'projects', label: 'Projects', icon: 'project-diagram' },
+  { id: 'communication', label: 'Communication', icon: 'message-square' },
   { id: 'ai-analytics', label: 'AI Analytics', icon: 'brain' },
   { id: 'schedules', label: 'Schedules', icon: 'calendar-alt' },
   { id: 'reports', label: 'Reports', icon: 'file-alt' },
@@ -204,6 +206,10 @@ export default function AdminDashboard() {
                 data-testid="team-table"
               />
             </div>
+          )}
+
+          {activeSection === 'communication' && (
+            <CommunicationDashboard />
           )}
 
           {activeSection === 'projects' && (

@@ -20,6 +20,9 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { sendEmail } from './email';
+import { notificationService } from './notifications';
+import { aiNotificationService } from './ai-notifications';
+import { progressMonitor } from './progress-monitor';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint for Docker
@@ -231,6 +234,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertProjectAssignmentSchema.parse(req.body);
       const assignment = await storage.createProjectAssignment(validatedData);
+      
+      // Notify the assigned user about the project assignment
+      await notificationService.notifyProjectAssignment(
+        validatedData.projectId, 
+        validatedData.userId, 
+        currentUser.id, 
+        validatedData.role || 'team member'
+      );
+      
       res.status(201).json(assignment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -622,15 +634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .returning();
 
       // Notify admins/professors that a schedule was submitted
-      const users = await storage.getAllUsers();
-      const reviewers = users.filter(u => (u.role === 'admin' || u.role === 'professor') && !!u.email);
-      for (const reviewer of reviewers) {
-        await sendEmail(
-          reviewer.email!,
-          'Schedule submitted for approval',
-          `<p>User <b>${currentUser.firstName} ${currentUser.lastName}</b> submitted schedule for week starting ${updatedSchedule.weekStartDate}.</p>`
-        );
-      }
+      await notificationService.notifyScheduleSubmitted(scheduleId, currentUser.id);
       
       res.json(updatedSchedule);
     } catch (error) {
@@ -649,19 +653,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Notify the schedule owner
       if (approvedSchedule) {
-        const owner = await storage.getUser(approvedSchedule.userId);
-        if (owner?.email) {
-          await sendEmail(
-            owner.email,
-            'Your schedule was approved',
-            `<p>Your schedule for week starting ${approvedSchedule.weekStartDate} has been approved.</p>`
-          );
-        }
+        await notificationService.notifyScheduleApproved(scheduleId, currentUser.id);
       }
       res.json(approvedSchedule);
     } catch (error) {
       console.error("Error approving work schedule:", error);
       res.status(500).json({ message: "Failed to approve work schedule" });
+    }
+  });
+
+  app.put('/api/work-schedules/:id/reject', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const scheduleId = req.params.id;
+      const rejectionReason = req.body.reason || 'No reason provided';
+      
+      // Update schedule status to rejected
+      const [rejectedSchedule] = await db
+        .update(workSchedules)
+        .set({
+          status: 'rejected',
+          notes: rejectionReason,
+          updatedAt: new Date()
+        })
+        .where(eq(workSchedules.id, scheduleId))
+        .returning();
+
+      // Notify the schedule owner
+      if (rejectedSchedule) {
+        await notificationService.notifyScheduleRejected(scheduleId, currentUser.id, rejectionReason);
+      }
+      
+      res.json(rejectedSchedule);
+    } catch (error) {
+      console.error("Error rejecting work schedule:", error);
+      res.status(500).json({ message: "Failed to reject work schedule" });
     }
   });
 
@@ -845,14 +871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Email assigned users (if provided via subsequent assignment endpoint, they'll also get emails there)
       const assigneeId = (req.body as any).assigneeId as string | undefined;
       if (assigneeId) {
-        const assignee = await storage.getUser(assigneeId);
-        if (assignee?.email) {
-          await sendEmail(
-            assignee.email,
-            `New task assigned: ${task.title}`,
-            `<p>You have a new task on project ${task.projectId}.</p><p>Title: <b>${task.title}</b></p>`
-          );
-        }
+        await notificationService.notifyTaskAssignment(task.id, assigneeId, currentUser.id);
       }
       res.status(201).json(task);
     } catch (error) {
@@ -934,14 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assignment = await storage.assignTaskToUser(validatedData);
 
       // Notify the assignee
-      const assignee = await storage.getUser(userId);
-      if (assignee?.email) {
-        await sendEmail(
-          assignee.email,
-          'You were assigned a new task',
-          `<p>You have been assigned a new task. Task ID: <b>${taskId}</b></p>`
-        );
-      }
+      await notificationService.notifyTaskAssignment(taskId, userId, currentUser.id);
       res.status(201).json(assignment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1073,6 +1085,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) {
       console.error('Export schedules failed:', e);
       res.status(500).json({ message: 'Failed to export schedules' });
+    }
+  });
+
+  // Direct messaging routes
+  app.post('/api/messages/send', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const { recipientId, subject, message } = req.body;
+      
+      if (!recipientId || !subject || !message) {
+        return res.status(400).json({ message: "Missing required fields: recipientId, subject, message" });
+      }
+      
+      // Verify recipient exists and is active
+      const recipient = await storage.getUser(recipientId);
+      if (!recipient || !recipient.isActive) {
+        return res.status(404).json({ message: "Recipient not found or inactive" });
+      }
+      
+      // Send the direct message via email
+      await notificationService.sendDirectMessage(currentUser.id, recipientId, subject, message);
+      
+      res.json({ success: true, message: "Message sent successfully" });
+    } catch (error) {
+      console.error("Error sending direct message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Get all users for messaging (professors can message students, students can message professors)
+  app.get('/api/users/messageable', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const allUsers = await storage.getAllUsers();
+      
+      let messageableUsers;
+      if (currentUser.role === 'admin' || currentUser.role === 'professor') {
+        // Professors and admins can message anyone except themselves
+        messageableUsers = allUsers.filter(u => u.id !== currentUser.id && u.isActive);
+      } else {
+        // Students can only message professors and admins
+        messageableUsers = allUsers.filter(u => 
+          u.id !== currentUser.id && 
+          u.isActive && 
+          (u.role === 'professor' || u.role === 'admin')
+        );
+      }
+      
+      // Return only necessary fields for privacy
+      const safeUsers = messageableUsers.map(u => ({
+        id: u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        email: u.email,
+        role: u.role,
+        department: u.department
+      }));
+      
+      res.json(safeUsers);
+    } catch (error) {
+      console.error("Error fetching messageable users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // AI Lab Insights Route
+  app.get('/api/ai/lab-insights', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const insights = await aiNotificationService.generateLabInsights();
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating lab insights:", error);
+      res.status(500).json({ message: "Failed to generate lab insights" });
+    }
+  });
+
+  // AI Productivity Analysis Route
+  app.get('/api/ai/productivity/:userId', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const analysis = await aiNotificationService.analyzeStudentProductivity(userId);
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error analyzing student productivity:", error);
+      res.status(500).json({ message: "Failed to analyze student productivity" });
+    }
+  });
+
+  // Real-time Lab Statistics Route
+  app.get('/api/realtime/lab-stats', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const stats = await progressMonitor.getRealtimeLabStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting realtime lab stats:", error);
+      res.status(500).json({ message: "Failed to get realtime statistics" });
     }
   });
 

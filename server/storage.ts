@@ -125,6 +125,13 @@ export interface IStorage {
   completeTask(completion: InsertTaskCompletion): Promise<TaskCompletion>;
   getTaskCompletions(taskId: string): Promise<TaskCompletion[]>;
   isTaskCompletedByUser(taskId: string, userId: string): Promise<boolean>;
+  
+  // Additional methods for notification service
+  getTask(id: string): Promise<ProjectTask | undefined>;
+  getTaskProject(taskId: string): Promise<Project | undefined>;
+  getTaskAssignees(taskId: string): Promise<User[]>;
+  getUsersByRole(role: string): Promise<User[]>;
+  getWorkSchedule(id: string): Promise<WorkSchedule | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -732,6 +739,66 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     return !!completion;
+  }
+
+  // Additional methods for notification service
+  async getTask(id: string): Promise<ProjectTask | undefined> {
+    const [task] = await db.select().from(projectTasks).where(eq(projectTasks.id, id));
+    return task;
+  }
+
+  async getTaskProject(taskId: string): Promise<Project | undefined> {
+    const [result] = await db
+      .select({ 
+        id: projects.id,
+        name: projects.name,
+        description: projects.description,
+        startDate: projects.startDate,
+        targetEndDate: projects.targetEndDate,
+        status: projects.status,
+        projectType: projects.projectType,
+        createdBy: projects.createdBy,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt
+      })
+      .from(projectTasks)
+      .innerJoin(projects, eq(projectTasks.projectId, projects.id))
+      .where(eq(projectTasks.id, taskId));
+    return result;
+  }
+
+  async getTaskAssignees(taskId: string): Promise<User[]> {
+    return await db
+      .select({
+        id: users.id,
+        email: users.email,
+        passwordHash: users.passwordHash,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        profileImageUrl: users.profileImageUrl,
+        role: users.role,
+        department: users.department,
+        yearLevel: users.yearLevel,
+        specialization: users.specialization,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt
+      })
+      .from(taskAssignments)
+      .innerJoin(users, eq(taskAssignments.userId, users.id))
+      .where(and(eq(taskAssignments.taskId, taskId), eq(taskAssignments.isActive, true)));
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(and(eq(users.role, role), eq(users.isActive, true)));
+  }
+
+  async getWorkSchedule(id: string): Promise<WorkSchedule | undefined> {
+    const [schedule] = await db.select().from(workSchedules).where(eq(workSchedules.id, id));
+    return schedule;
   }
 }
 
