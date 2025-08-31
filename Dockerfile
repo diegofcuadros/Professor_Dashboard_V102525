@@ -1,35 +1,19 @@
 # Production Dockerfile for Railway deployment
-FROM node:18-alpine AS builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install all dependencies first (including dev for build)
-RUN npm ci && npm cache clean --force
-
-# Copy source code
-COPY . .
-
-# Build the application
-RUN npm run build
-
-# Remove dev dependencies after build
-RUN npm prune --omit=dev
-
-# Production stage
-FROM node:18-alpine AS production
+FROM node:18-alpine
 
 WORKDIR /app
 
 # Install curl for health checks
 RUN apk add --no-cache curl
 
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci && npm cache clean --force
+
+# Copy all source code
+COPY . .
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs

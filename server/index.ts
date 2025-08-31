@@ -2,6 +2,10 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { initializeWebSocket } from "./websocket";
 import { setupVite, serveStatic, log } from "./vite";
+import { loadEnvironment } from "./env";
+
+// Load environment variables
+loadEnvironment();
 
 const app = express();
 app.use(express.json());
@@ -67,7 +71,7 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen({
     port,
-    host: "localhost",
+    host: "0.0.0.0",
   }, () => {
     log(`serving on port ${port}`);
   });
