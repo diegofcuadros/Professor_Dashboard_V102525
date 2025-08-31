@@ -672,7 +672,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/schedule-compliance', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
       const userId = req.query.userId as string;
-      const compliance = await storage.getScheduleCompliance(userId);
+      const weekStart = req.query.weekStart as string | undefined;
+      const compliance = await storage.getScheduleCompliance(userId, weekStart);
       res.json(compliance);
     } catch (error) {
       console.error("Error fetching schedule compliance:", error);

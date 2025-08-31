@@ -16,8 +16,18 @@ declare global {
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
+  const connectionString =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.RAILWAY_DATABASE_URL;
+
+  if (!connectionString) {
+    throw new Error("Database connection string is not set for session store");
+  }
+
   const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
+    conString: connectionString,
     createTableIfMissing: true,
     ttl: sessionTtl,
     tableName: "sessions",
@@ -31,7 +41,7 @@ export function getSession() {
     name: 'connect.sid',
     cookie: {
       httpOnly: true,
-      secure: false, // Set to false for development
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: sessionTtl,
     },

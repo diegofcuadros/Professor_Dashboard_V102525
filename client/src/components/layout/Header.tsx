@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Bell, LogOut } from "lucide-react";
 import type { User } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 interface HeaderProps {
   user: User | null;
@@ -16,8 +17,14 @@ const roleColors = {
 };
 
 export default function Header({ user, role, roleIcon, notificationCount = 0 }: HeaderProps) {
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/auth/logout", {});
+    } catch (_) {
+      // ignore errors and continue
+    } finally {
+      window.location.reload();
+    }
   };
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {

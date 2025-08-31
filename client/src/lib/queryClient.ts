@@ -23,13 +23,26 @@ export async function apiRequest(
   return res;
 }
 
+export async function apiRequestJson<T>(
+  method: string,
+  url: string,
+  data?: unknown | undefined,
+): Promise<T> {
+  const res = await apiRequest(method, url, data);
+  return await res.json();
+}
+
 type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    // Expect first element to be a full URL; if array passed, use the first item
+    const url = Array.isArray(queryKey)
+      ? (queryKey[0] as string)
+      : (queryKey as unknown as string);
+    const res = await fetch(url, {
       credentials: "include",
     });
 

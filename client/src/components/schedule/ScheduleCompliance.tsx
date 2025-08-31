@@ -62,7 +62,7 @@ export default function ScheduleCompliance() {
 
   // Fetch schedule compliance data
   const { data: complianceData, isLoading } = useQuery<ScheduleCompliance[]>({
-    queryKey: ["/api/schedule-compliance", selectedWeek],
+    queryKey: [`/api/schedule-compliance?weekStart=${selectedWeek}`],
     retry: false,
   });
 

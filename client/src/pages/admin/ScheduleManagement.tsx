@@ -96,13 +96,13 @@ export default function ScheduleManagement() {
 
   // Fetch time entries
   const { data: timeEntries, isLoading: entriesLoading } = useQuery<TimeEntry[]>({
-    queryKey: ["/api/time-entries", selectedWeek],
+    queryKey: [`/api/time-entries?weekStart=${selectedWeek}`],
     retry: false,
   });
 
   // Fetch work schedules
   const { data: schedules, isLoading: schedulesLoading } = useQuery<WorkSchedule[]>({
-    queryKey: ["/api/work-schedules", selectedWeek],
+    queryKey: [`/api/work-schedules?weekStart=${selectedWeek}`],
     retry: false,
   });
 

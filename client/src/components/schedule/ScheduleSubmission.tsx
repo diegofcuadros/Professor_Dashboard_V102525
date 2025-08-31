@@ -99,14 +99,14 @@ export default function ScheduleSubmission() {
 
   // Fetch user's schedules
   const { data: userSchedules, isLoading: schedulesLoading } = useQuery<WorkSchedule[]>({
-    queryKey: ["/api/work-schedules", selectedWeek],
+    queryKey: [`/api/work-schedules?weekStart=${selectedWeek}`],
     retry: false,
     enabled: !!user?.id,
   });
 
   // Fetch schedule validation
   const { data: validation } = useQuery<ScheduleValidation>({
-    queryKey: ["/api/schedule-validation", user?.id, selectedWeek],
+    queryKey: [`/api/schedule-validation/${user?.id}?weekStart=${selectedWeek}`],
     retry: false,
     enabled: !!user?.id && !!selectedWeek,
   });
@@ -116,7 +116,8 @@ export default function ScheduleSubmission() {
     mutationFn: async (data: any) => {
       return await apiRequest("POST", "/api/work-schedules", data);
     },
-    onSuccess: (newSchedule) => {
+    onSuccess: async (res) => {
+      const newSchedule: WorkSchedule = await res.json();
       toast({
         title: "Schedule Created",
         description: "Your work schedule has been saved as draft",
@@ -187,7 +188,8 @@ export default function ScheduleSubmission() {
   const refetchBlocks = async () => {
     if (editingSchedule) {
       try {
-        const blocks = await apiRequest("GET", `/api/work-schedules/${editingSchedule.id}/blocks`);
+        const res = await apiRequest("GET", `/api/work-schedules/${editingSchedule.id}/blocks`);
+        const blocks: ScheduleBlock[] = await res.json();
         setScheduleBlocks(blocks);
       } catch (error) {
         console.error("Failed to fetch schedule blocks:", error);
@@ -304,7 +306,8 @@ export default function ScheduleSubmission() {
       // Fetch blocks directly for this schedule
       const fetchBlocks = async () => {
         try {
-          const blocks = await apiRequest("GET", `/api/work-schedules/${currentSchedule.id}/blocks`);
+          const res = await apiRequest("GET", `/api/work-schedules/${currentSchedule.id}/blocks`);
+          const blocks: ScheduleBlock[] = await res.json();
           setScheduleBlocks(blocks);
         } catch (error) {
           console.error("Failed to fetch schedule blocks:", error);

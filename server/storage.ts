@@ -501,7 +501,7 @@ export class DatabaseStorage implements IStorage {
     return s1 < e2 && s2 < e1;
   }
   
-  async getScheduleCompliance(userId?: string): Promise<any> {
+  async getScheduleCompliance(userId?: string, weekStart?: string): Promise<any> {
     let query = db.select({
       userId: workSchedules.userId,
       weekStartDate: workSchedules.weekStartDate,
@@ -517,6 +517,10 @@ export class DatabaseStorage implements IStorage {
     
     if (userId) {
       query = query.where(eq(workSchedules.userId, userId));
+    }
+    if (weekStart) {
+      // Apply week filter in addition to any user filter
+      query = query.where(eq(workSchedules.weekStartDate, weekStart));
     }
     
     const schedules = await query;

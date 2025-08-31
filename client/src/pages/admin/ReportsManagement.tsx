@@ -107,13 +107,13 @@ export default function ReportsManagement() {
 
   // Fetch productivity reports
   const { data: productivityData, isLoading: productivityLoading } = useQuery<ProductivityReport[]>({
-    queryKey: ["/api/reports/productivity", dateRange],
+    queryKey: [`/api/reports/productivity/${dateRange}`],
     retry: false,
   });
 
   // Fetch project reports
   const { data: projectData, isLoading: projectLoading } = useQuery<ProjectReport[]>({
-    queryKey: ["/api/reports/projects", dateRange],
+    queryKey: [`/api/reports/projects/${dateRange}`],
     retry: false,
   });
 
@@ -151,19 +151,27 @@ export default function ReportsManagement() {
     mutationFn: async (reportId: string) => {
       return await apiRequest("GET", `/api/reports/${reportId}/download`, {});
     },
-    onSuccess: (data: any, reportId) => {
-      // Create download link
-      const link = document.createElement('a');
-      link.href = data.downloadUrl || '#';
-      link.download = `report-${reportId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: "Success",
-        description: "Report downloaded successfully",
-      });
+    onSuccess: async (res: Response, reportId) => {
+      try {
+        const data: { downloadUrl: string } = await res.json();
+        const link = document.createElement('a');
+        link.href = data.downloadUrl || '#';
+        link.download = `report-${reportId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: "Success",
+          description: "Report downloaded successfully",
+        });
+      } catch (e: any) {
+        toast({
+          title: "Error",
+          description: e?.message || "Failed to download report",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error: any) => {
       toast({
