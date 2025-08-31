@@ -19,6 +19,7 @@ import {
   loginSchema
 } from "@shared/schema";
 import { z } from "zod";
+import { sendEmail } from './email';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint for Docker
@@ -45,7 +46,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "User already exists with this email" });
       }
       
-      const user = await storage.createUser(validatedData);
+      // Enforce student-only registration (professor/admin created via admin panel only)
+      const user = await storage.createUser({
+        ...validatedData,
+        role: 'student',
+      });
       
       // Set up session
       (req.session as any).userId = user.id;
@@ -606,11 +611,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .where(eq(workSchedules.id, scheduleId))
         .returning();
+
+      // Notify admins/professors that a schedule was submitted
+      const users = await storage.getAllUsers();
+      const reviewers = users.filter(u => (u.role === 'admin' || u.role === 'professor') && !!u.email);
+      for (const reviewer of reviewers) {
+        await sendEmail(
+          reviewer.email!,
+          'Schedule submitted for approval',
+          `<p>User <b>${currentUser.firstName} ${currentUser.lastName}</b> submitted schedule for week starting ${updatedSchedule.weekStartDate}.</p>`
+        );
+      }
       
       res.json(updatedSchedule);
     } catch (error) {
       console.error("Error submitting schedule:", error);
       res.status(500).json({ message: "Failed to submit schedule" });
+    }
+  });
+
+  // Approve schedule
+  app.put('/api/work-schedules/:id/approve', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const scheduleId = req.params.id;
+      
+      const approvedSchedule = await storage.approveWorkSchedule(scheduleId, currentUser.id);
+
+      // Notify the schedule owner
+      if (approvedSchedule) {
+        const owner = await storage.getUser(approvedSchedule.userId);
+        if (owner?.email) {
+          await sendEmail(
+            owner.email,
+            'Your schedule was approved',
+            `<p>Your schedule for week starting ${approvedSchedule.weekStartDate} has been approved.</p>`
+          );
+        }
+      }
+      res.json(approvedSchedule);
+    } catch (error) {
+      console.error("Error approving work schedule:", error);
+      res.status(500).json({ message: "Failed to approve work schedule" });
     }
   });
 
@@ -790,6 +832,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const task = await storage.createProjectTask(validatedData);
+
+      // Email assigned users (if provided via subsequent assignment endpoint, they'll also get emails there)
+      const assigneeId = (req.body as any).assigneeId as string | undefined;
+      if (assigneeId) {
+        const assignee = await storage.getUser(assigneeId);
+        if (assignee?.email) {
+          await sendEmail(
+            assignee.email,
+            `New task assigned: ${task.title}`,
+            `<p>You have a new task on project ${task.projectId}.</p><p>Title: <b>${task.title}</b></p>`
+          );
+        }
+      }
       res.status(201).json(task);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -868,6 +923,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const assignment = await storage.assignTaskToUser(validatedData);
+
+      // Notify the assignee
+      const assignee = await storage.getUser(userId);
+      if (assignee?.email) {
+        await sendEmail(
+          assignee.email,
+          'You were assigned a new task',
+          `<p>You have been assigned a new task. Task ID: <b>${taskId}</b></p>`
+        );
+      }
       res.status(201).json(assignment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -942,6 +1007,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching task completions:", error);
       res.status(500).json({ message: "Failed to fetch task completions" });
+    }
+  });
+
+  // Simple KPIs for dashboard
+  app.get('/api/analytics/kpis', isAuthenticated, async (req, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const projects = await storage.getAllProjects();
+      const tasks = await storage.getUserTasks(req.user!.id);
+      const schedules = await storage.getUserWorkSchedules(req.user!.id);
+
+      res.json({
+        totalUsers: allUsers.length,
+        totalProjects: projects.length,
+        myOpenTasks: tasks.filter(t => !t.isCompleted).length,
+        mySchedules: schedules.length,
+      });
+    } catch (e) {
+      console.error('Error computing KPIs:', e);
+      res.status(500).json({ message: 'Failed to compute KPIs' });
+    }
+  });
+
+  // CSV export helpers
+  const toCsv = (rows: any[]) => {
+    if (!rows.length) return '';
+    const headers = Object.keys(rows[0]);
+    const escape = (v: any) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    return [headers.join(','), ...rows.map(r => headers.map(h => escape((r as any)[h])).join(','))].join('\n');
+  };
+
+  app.get('/api/export/tasks.csv', isAuthenticated, async (req, res) => {
+    try {
+      const data = await storage.getUserTasks(req.user!.id);
+      const csv = toCsv(data.map(t => ({ id: t.id, title: t.title, projectId: t.projectId, dueDate: t.dueDate, isCompleted: t.isCompleted })));
+      res.header('Content-Type', 'text/csv');
+      res.attachment('tasks.csv');
+      res.send(csv);
+    } catch (e) {
+      console.error('Export tasks failed:', e);
+      res.status(500).json({ message: 'Failed to export tasks' });
+    }
+  });
+
+  app.get('/api/export/schedules.csv', isAuthenticated, async (req, res) => {
+    try {
+      const data = await storage.getUserWorkSchedules(req.user!.id);
+      const csv = toCsv(data.map(s => ({ id: s.id, weekStartDate: s.weekStartDate, status: s.status, totalScheduledHours: s.totalScheduledHours })));
+      res.header('Content-Type', 'text/csv');
+      res.attachment('schedules.csv');
+      res.send(csv);
+    } catch (e) {
+      console.error('Export schedules failed:', e);
+      res.status(500).json({ message: 'Failed to export schedules' });
     }
   });
 
