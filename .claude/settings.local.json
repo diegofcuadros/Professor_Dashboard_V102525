@@ -13,7 +13,10 @@
       "Bash(choco:*)",
       "Bash(docker:*)",
       "Bash(net start:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npm run dev:*)",
+      "Bash(set NODE_ENV=development)",
+      "Bash(npx tsx:*)"
     ],
     "deny": [],
     "ask": []

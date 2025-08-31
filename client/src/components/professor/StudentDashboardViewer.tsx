@@ -1,0 +1,578 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Users, 
+  Eye, 
+  Search, 
+  Filter,
+  User,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Calendar,
+  BarChart3,
+  MessageSquare
+} from "lucide-react";
+
+interface Student {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  department: string;
+  yearLevel: string;
+  specialization: string;
+  isActive: boolean;
+}
+
+interface StudentDashboardData {
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+  };
+  metrics: {
+    totalProjects: number;
+    totalTasks: number;
+    completedTasks: number;
+    pendingTasks: number;
+    inProgressTasks: number;
+    totalHoursScheduled: number;
+    unreadNotifications: number;
+    productivityScore: number;
+    riskLevel: string;
+  };
+  recentActivity: {
+    progressUpdates: Array<any>;
+    recentTasks: Array<any>;
+  };
+  productivity: {
+    currentScore: number;
+    riskLevel: string;
+    recommendations: string[];
+    lastAnalyzed: string;
+  };
+}
+
+export default function StudentDashboardViewer() {
+  const { user } = useAuth();
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+
+  // Fetch all students
+  const { data: students, isLoading: studentsLoading } = useQuery<Student[]>({
+    queryKey: ["/api/users"],
+    retry: false,
+    enabled: user?.role === 'admin' || user?.role === 'professor',
+  });
+
+  // Fetch selected student's dashboard data
+  const { data: dashboardData, isLoading: dashboardLoading } = useQuery<StudentDashboardData>({
+    queryKey: [`/api/users/${selectedStudent?.id}/dashboard-metrics`],
+    retry: false,
+    enabled: !!selectedStudent?.id && (user?.role === 'admin' || user?.role === 'professor'),
+  });
+
+  // Filter students
+  const filteredStudents = students?.filter(student => {
+    if (student.role !== 'student') return false;
+    
+    const matchesSearch = searchTerm === "" || 
+      `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesDepartment = departmentFilter === "all" || student.department === departmentFilter;
+    
+    return matchesSearch && matchesDepartment;
+  }) || [];
+
+  // Get unique departments for filter
+  const departments = [...new Set(students?.filter(s => s.role === 'student' && s.department).map(s => s.department))];
+
+  const getStatusColor = (score: number) => {
+    if (score >= 75) return "text-green-600";
+    if (score >= 50) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  const getStatusBadge = (score: number): "default" | "secondary" | "destructive" => {
+    if (score >= 75) return "default";
+    if (score >= 50) return "secondary";
+    return "destructive";
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Student Dashboard Viewer</h2>
+          <p className="text-muted-foreground">
+            View individual student progress, schedules, and performance analytics
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Student List */}
+        <div className="lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Students ({filteredStudents.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Search and Filter */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search students..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                  <SelectTrigger>
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Departments</SelectItem>
+                    {departments.map(dept => (
+                      <SelectItem key={dept} value={dept || ""}>{dept}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Student List */}
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {studentsLoading ? (
+                  <div className="text-center py-4 text-muted-foreground">Loading students...</div>
+                ) : filteredStudents.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">No students found</div>
+                ) : (
+                  filteredStudents.map((student) => (
+                    <div
+                      key={student.id}
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedStudent?.id === student.id 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:bg-muted/50'
+                      }`}
+                      onClick={() => setSelectedStudent(student)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">
+                            {student.firstName} {student.lastName}
+                          </p>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {student.email}
+                          </p>
+                          {student.department && (
+                            <p className="text-xs text-muted-foreground">
+                              {student.department}
+                            </p>
+                          )}
+                        </div>
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Student Dashboard */}
+        <div className="lg:col-span-2">
+          {selectedStudent ? (
+            <div className="space-y-6">
+              {/* Student Info Header */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
+                        <User className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle>{selectedStudent.firstName} {selectedStudent.lastName}</CardTitle>
+                        <p className="text-muted-foreground">{selectedStudent.email}</p>
+                      </div>
+                    </div>
+                    <Badge variant={selectedStudent.isActive ? "default" : "secondary"}>
+                      {selectedStudent.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Department:</span>
+                      <p className="font-medium">{selectedStudent.department || 'Not specified'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Year Level:</span>
+                      <p className="font-medium">{selectedStudent.yearLevel || 'Not specified'}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Specialization:</span>
+                      <p className="font-medium">{selectedStudent.specialization || 'Not specified'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Student Metrics Tabs */}
+              <Tabs defaultValue="overview" className="space-y-4">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="tasks">Tasks</TabsTrigger>
+                  <TabsTrigger value="schedule">Schedule</TabsTrigger>
+                  <TabsTrigger value="analysis">AI Analysis</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="overview" className="space-y-4">
+                  {dashboardLoading ? (
+                    <Card>
+                      <CardContent className="p-6 text-center">Loading metrics...</CardContent>
+                    </Card>
+                  ) : dashboardData ? (
+                    <>
+                      {/* Key Metrics */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Total Projects</p>
+                                <p className="text-2xl font-bold">{dashboardData.metrics.totalProjects}</p>
+                              </div>
+                              <BarChart3 className="h-6 w-6 text-blue-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Total Tasks</p>
+                                <p className="text-2xl font-bold">{dashboardData.metrics.totalTasks}</p>
+                              </div>
+                              <BarChart3 className="h-6 w-6 text-blue-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Completed</p>
+                                <p className="text-2xl font-bold text-green-600">{dashboardData.metrics.completedTasks}</p>
+                              </div>
+                              <CheckCircle2 className="h-6 w-6 text-green-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">In Progress</p>
+                                <p className="text-2xl font-bold text-yellow-600">{dashboardData.metrics.inProgressTasks}</p>
+                              </div>
+                              <Clock className="h-6 w-6 text-yellow-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Additional Metrics */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Total Hours Scheduled</p>
+                                <p className="text-2xl font-bold">{dashboardData.metrics.totalHoursScheduled}h</p>
+                              </div>
+                              <Clock className="h-6 w-6 text-blue-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Unread Notifications</p>
+                                <p className="text-2xl font-bold">{dashboardData.metrics.unreadNotifications}</p>
+                              </div>
+                              <AlertTriangle className="h-6 w-6 text-orange-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-muted-foreground">Risk Level</p>
+                                <Badge variant={
+                                  dashboardData.metrics.riskLevel === 'high' ? 'destructive' :
+                                  dashboardData.metrics.riskLevel === 'medium' ? 'secondary' : 'default'
+                                }>
+                                  {dashboardData.metrics.riskLevel?.toUpperCase()}
+                                </Badge>
+                              </div>
+                              <BarChart3 className="h-6 w-6 text-red-500" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Completion Rate */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Performance Overview</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium">Task Completion Rate</span>
+                                <span className="text-sm font-medium">
+                                  {dashboardData.metrics.totalTasks > 0 ? 
+                                    Math.round((dashboardData.metrics.completedTasks / dashboardData.metrics.totalTasks) * 100) : 0}%
+                                </span>
+                              </div>
+                              <div className="w-full bg-muted rounded-full h-2">
+                                <div 
+                                  className="bg-primary rounded-full h-2 transition-all"
+                                  style={{ 
+                                    width: `${dashboardData.metrics.totalTasks > 0 ? 
+                                      (dashboardData.metrics.completedTasks / dashboardData.metrics.totalTasks) * 100 : 0}%` 
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium">Productivity Score</span>
+                                <Badge variant={getStatusBadge(dashboardData.metrics.productivityScore)}>
+                                  {dashboardData.metrics.productivityScore}/100
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </>
+                  ) : (
+                    <Card>
+                      <CardContent className="p-6 text-center text-muted-foreground">
+                        No dashboard data available
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="tasks">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Tasks & Activity</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {dashboardData?.recentActivity?.recentTasks?.length ? (
+                        <div className="space-y-3">
+                          <h4 className="font-medium">Recent Tasks</h4>
+                          {dashboardData.recentActivity.recentTasks.map((task: any, index: number) => (
+                            <div key={index} className="flex items-center justify-between p-3 border rounded">
+                              <div className="flex-1">
+                                <span className="font-medium">{task.title || `Task ${index + 1}`}</span>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant={
+                                    task.status === 'completed' ? 'default' :
+                                    task.status === 'in-progress' ? 'secondary' : 'outline'
+                                  } size="sm">
+                                    {task.status || 'pending'}
+                                  </Badge>
+                                  {task.priority && (
+                                    <Badge variant="outline" size="sm">
+                                      {task.priority}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-sm text-muted-foreground">
+                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p>No recent tasks found</p>
+                        </div>
+                      )}
+
+                      {/* Progress Updates */}
+                      {dashboardData?.recentActivity?.progressUpdates?.length > 0 && (
+                        <div className="space-y-3 mt-6">
+                          <h4 className="font-medium">Recent Progress Updates</h4>
+                          {dashboardData.recentActivity.progressUpdates.map((update: any, index: number) => (
+                            <div key={index} className="flex items-start gap-3 p-3 border rounded">
+                              <div className="h-2 w-2 bg-primary rounded-full mt-2" />
+                              <div className="flex-1">
+                                <p className="text-sm">{update.description || update.notes || 'Progress update'}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {update.createdAt ? new Date(update.createdAt).toLocaleString() : 'Recent'}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="schedule">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Schedule Information</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p>Schedule details will be displayed here</p>
+                        <p className="text-sm">Integration with schedule data in progress</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="analysis">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>AI Productivity Analysis</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {dashboardLoading ? (
+                        <div className="text-center py-6">Loading AI analysis...</div>
+                      ) : dashboardData?.productivity ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 border rounded">
+                              <h4 className="font-medium mb-2">Productivity Score</h4>
+                              <p className={`text-2xl font-bold ${getStatusColor(dashboardData.productivity.currentScore)}`}>
+                                {dashboardData.productivity.currentScore}/100
+                              </p>
+                            </div>
+                            <div className="p-4 border rounded">
+                              <h4 className="font-medium mb-2">Risk Level</h4>
+                              <Badge variant={
+                                dashboardData.productivity.riskLevel === 'high' ? 'destructive' :
+                                dashboardData.productivity.riskLevel === 'medium' ? 'secondary' : 'default'
+                              }>
+                                {dashboardData.productivity.riskLevel?.toUpperCase() || 'LOW'}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {dashboardData.productivity.lastAnalyzed && (
+                            <div className="p-4 bg-muted/30 rounded">
+                              <p className="text-sm text-muted-foreground">
+                                Last analyzed: {new Date(dashboardData.productivity.lastAnalyzed).toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {dashboardData.productivity.recommendations?.length > 0 && (
+                            <div>
+                              <h4 className="font-medium mb-2">AI Recommendations</h4>
+                              <ul className="space-y-2">
+                                {dashboardData.productivity.recommendations.map((rec: string, index: number) => (
+                                  <li key={index} className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded">
+                                    <span className="text-blue-600 dark:text-blue-400 font-semibold">•</span>
+                                    <span className="text-sm">{rec}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p>No analysis data available</p>
+                          <p className="text-sm mt-1">AI analysis will appear here once student data is available</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+
+              {/* Quick Actions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm">
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Send Message
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      View Schedule
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      Generate Report
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">Select a Student</h3>
+                <p className="text-muted-foreground">
+                  Choose a student from the list to view their dashboard and progress
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

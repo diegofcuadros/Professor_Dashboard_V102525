@@ -1184,6 +1184,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Student Dashboard Metrics for Professors
+  app.get('/api/users/:userId/dashboard-metrics', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const [
+        user,
+        assignments,
+        tasks,
+        workSchedules,
+        progressUpdates,
+        notifications,
+        productivity
+      ] = await Promise.all([
+        storage.getUser(userId),
+        storage.getUserAssignments(userId),
+        storage.getUserTasks(userId),
+        storage.getUserWorkSchedules(userId),
+        storage.getUserProgressUpdates(userId),
+        storage.getUserNotifications(userId),
+        aiNotificationService.analyzeStudentProductivity(userId)
+      ]);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Calculate additional metrics
+      const completedTasks = tasks.filter(task => task.status === 'completed').length;
+      const pendingTasks = tasks.filter(task => task.status === 'pending').length;
+      const inProgressTasks = tasks.filter(task => task.status === 'in-progress').length;
+      
+      const totalHoursScheduled = workSchedules.reduce((sum, schedule) => 
+        sum + (schedule.totalScheduledHours || 0), 0
+      );
+
+      const recentProgressUpdates = progressUpdates
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5);
+
+      const unreadNotifications = notifications.filter(n => !n.isRead).length;
+
+      res.json({
+        user: {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role
+        },
+        metrics: {
+          totalProjects: assignments.length,
+          totalTasks: tasks.length,
+          completedTasks,
+          pendingTasks,
+          inProgressTasks,
+          totalHoursScheduled,
+          unreadNotifications,
+          productivityScore: productivity.currentScore,
+          riskLevel: productivity.riskLevel
+        },
+        recentActivity: {
+          progressUpdates: recentProgressUpdates,
+          recentTasks: tasks
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+            .slice(0, 5)
+        },
+        productivity
+      });
+    } catch (error) {
+      console.error("Error getting student dashboard metrics:", error);
+      res.status(500).json({ message: "Failed to get student dashboard metrics" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
