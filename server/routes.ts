@@ -543,11 +543,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const currentUser = req.user!;
       
+      // Coerce incoming values to match schema expectations
+      const payload = {
+        userId: currentUser.id,
+        weekStartDate: req.body.weekStartDate,
+        // decimal values are often strings in zod generated schemas
+        totalScheduledHours: req.body.totalScheduledHours !== undefined && req.body.totalScheduledHours !== null
+          ? String(req.body.totalScheduledHours)
+          : undefined,
+        status: req.body.status || 'draft',
+        notes: req.body.notes || undefined,
+      };
+
       // Validate the schedule data
-      const validatedData = insertWorkScheduleSchema.parse({
-        ...req.body,
-        userId: currentUser.id
-      });
+      const validatedData = insertWorkScheduleSchema.parse(payload);
       
       // Create the schedule first (validation will be done when schedule blocks are added)
       const schedule = await storage.createWorkSchedule(validatedData);
