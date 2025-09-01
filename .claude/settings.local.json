@@ -19,7 +19,9 @@
       "Bash(npx tsx:*)",
       "Bash(git commit:*)",
       "Bash(npm run build:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": []

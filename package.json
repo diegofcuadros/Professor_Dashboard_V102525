@@ -19,6 +19,8 @@
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:setup": "npm run db:push && npx tsx scripts/seed-database.js",
+    "db:check": "npx tsx scripts/check-assignments.js",
+    "db:test-assignment": "npx tsx scripts/test-assignment.js",
     "worker": "NODE_ENV=production tsx server/worker.ts",
     "docker:dev": "docker-compose up --build",
     "docker:prod": "docker-compose -f docker-compose.prod.yml up --build -d",
