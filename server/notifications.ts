@@ -293,8 +293,8 @@ export class NotificationService {
     try {
       const notification = await storage.createNotification({
         userId: notificationData.userId,
-        title: notificationData.title,
-        message: notificationData.message,
+        subject: notificationData.title,
+        content: notificationData.message,
         type: notificationData.type,
         relatedEntityType: notificationData.relatedEntityType,
         relatedEntityId: notificationData.relatedEntityId,

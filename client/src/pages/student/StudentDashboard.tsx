@@ -260,7 +260,7 @@ export default function StudentDashboard() {
                       }`}
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-semibold text-foreground">{notification.title}</h3>
+                        <h3 className="font-semibold text-foreground">{notification.subject}</h3>
                         <div className="flex items-center gap-2">
                           {!notification.readAt && (
                             <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">NEW</span>
@@ -271,7 +271,7 @@ export default function StudentDashboard() {
                         </div>
                       </div>
                       
-                      <p className="text-muted-foreground mb-3">{notification.message}</p>
+                      <p className="text-muted-foreground mb-3">{notification.content}</p>
                       
                       {notification.metadata?.fromUserName && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground border-t pt-2">
