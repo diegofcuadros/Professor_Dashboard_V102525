@@ -1,5 +1,5 @@
 import { storage } from "./storage";
-import { notificationService } from "./notificationService";
+import { notificationService } from "./notifications";
 import type { Alert } from "@shared/schema";
 
 export class AlertService {
