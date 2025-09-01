@@ -1442,6 +1442,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sprint C Phase 2: Enhanced Analytics & Live Monitoring
+
+  // Get progress velocity metrics
+  app.get('/api/admin/velocity-metrics', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const { studentId, days } = req.query;
+      const metrics = await storage.getProgressVelocityMetrics(
+        studentId as string, 
+        days ? parseInt(days as string) : 7
+      );
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error fetching velocity metrics:", error);
+      res.status(500).json({ message: "Failed to fetch velocity metrics" });
+    }
+  });
+
+  // Get live team activity feed
+  app.get('/api/admin/live-activity', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const activity = await storage.getLiveTeamActivity();
+      res.json(activity);
+    } catch (error) {
+      console.error("Error fetching live activity:", error);
+      res.status(500).json({ message: "Failed to fetch live activity" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

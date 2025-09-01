@@ -147,6 +147,9 @@ export interface IStorage {
   getStudentTaskSummaries(): Promise<any[]>;
   updateTasksBulk(taskIds: string[], updates: any, userId: string): Promise<void>;
   addBulkComment(taskIds: string[], message: string, userId: string): Promise<void>;
+  // Sprint C Phase 2: Progress velocity tracking
+  getProgressVelocityMetrics(studentId?: string, days?: number): Promise<any>;
+  getLiveTeamActivity(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1079,16 +1082,56 @@ export class DatabaseStorage implements IStorage {
 
       if (updates.priority) {
         updateData.priority = updates.priority;
+        // Log activity
+        await db.insert(taskActivity).values({
+          taskId,
+          userId,
+          type: 'comment',
+          message: `Bulk priority change to ${updates.priority}`,
+        });
       }
 
       if (updates.dueDate) {
         updateData.dueDate = new Date(updates.dueDate);
+        // Log activity
+        await db.insert(taskActivity).values({
+          taskId,
+          userId,
+          type: 'comment',
+          message: `Bulk due date change to ${new Date(updates.dueDate).toLocaleDateString()}`,
+        });
       }
 
       await db
         .update(projectTasks)
         .set(updateData)
         .where(eq(projectTasks.id, taskId));
+
+      // Handle task reassignment
+      if (updates.assigneeId) {
+        // Deactivate current assignments
+        await db
+          .update(taskAssignments)
+          .set({ isActive: false })
+          .where(eq(taskAssignments.taskId, taskId));
+        
+        // Create new assignment
+        await db.insert(taskAssignments).values({
+          taskId,
+          userId: updates.assigneeId,
+          assignedBy: userId,
+          isActive: true,
+          assignedAt: new Date(),
+        });
+
+        // Log activity
+        await db.insert(taskActivity).values({
+          taskId,
+          userId,
+          type: 'comment',
+          message: `Task reassigned to new team member`,
+        });
+      }
     }
   }
 
@@ -1101,6 +1144,168 @@ export class DatabaseStorage implements IStorage {
         message: `[Bulk Comment] ${message}`,
       });
     }
+  }
+
+  // Sprint C Phase 2: Progress Velocity Tracking
+  async getProgressVelocityMetrics(studentId?: string, days: number = 7): Promise<any> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    // Get all task activity for velocity calculation
+    let activityQuery = db
+      .select({
+        taskId: taskActivity.taskId,
+        type: taskActivity.type,
+        message: taskActivity.message,
+        createdAt: taskActivity.createdAt,
+        userId: taskActivity.userId,
+        studentName: sql<string>`${users.firstName} || ' ' || ${users.lastName}`,
+        taskTitle: projectTasks.title,
+        projectName: projects.name,
+      })
+      .from(taskActivity)
+      .innerJoin(users, eq(taskActivity.userId, users.id))
+      .innerJoin(projectTasks, eq(taskActivity.taskId, projectTasks.id))
+      .innerJoin(projects, eq(projectTasks.projectId, projects.id))
+      .where(and(
+        gte(taskActivity.createdAt, cutoffDate),
+        eq(users.role, 'student')
+      ))
+      .orderBy(desc(taskActivity.createdAt));
+
+    if (studentId) {
+      activityQuery = activityQuery.where(eq(taskActivity.userId, studentId));
+    }
+
+    const activities = await activityQuery;
+
+    // Calculate velocity metrics
+    const velocityByStudent: { [key: string]: any } = {};
+    
+    activities.forEach(activity => {
+      const studentKey = activity.userId;
+      if (!velocityByStudent[studentKey]) {
+        velocityByStudent[studentKey] = {
+          studentId: activity.userId,
+          studentName: activity.studentName,
+          totalActivity: 0,
+          progressUpdates: 0,
+          statusChanges: 0,
+          comments: 0,
+          tasksWorkedOn: new Set(),
+          projectsActive: new Set(),
+          dailyActivity: {},
+          velocityScore: 0,
+        };
+      }
+
+      const student = velocityByStudent[studentKey];
+      student.totalActivity++;
+      student.tasksWorkedOn.add(activity.taskId);
+      student.projectsActive.add(activity.projectName);
+
+      // Count by type
+      if (activity.type === 'progress') student.progressUpdates++;
+      else if (activity.type === 'status') student.statusChanges++;
+      else if (activity.type === 'comment') student.comments++;
+
+      // Daily activity tracking
+      const dayKey = activity.createdAt.toISOString().split('T')[0];
+      student.dailyActivity[dayKey] = (student.dailyActivity[dayKey] || 0) + 1;
+    });
+
+    // Calculate velocity scores and finalize metrics
+    Object.keys(velocityByStudent).forEach(studentKey => {
+      const student = velocityByStudent[studentKey];
+      
+      // Convert sets to counts
+      student.uniqueTasksWorkedOn = student.tasksWorkedOn.size;
+      student.uniqueProjectsActive = student.projectsActive.size;
+      delete student.tasksWorkedOn;
+      delete student.projectsActive;
+
+      // Calculate velocity score (activity frequency + task diversity)
+      const avgDailyActivity = student.totalActivity / days;
+      const taskDiversityBonus = Math.min(student.uniqueTasksWorkedOn * 2, 20);
+      student.velocityScore = Math.round(avgDailyActivity * 10 + taskDiversityBonus);
+
+      // Velocity trend (comparing first half vs second half of period)
+      const midPoint = Math.floor(days / 2);
+      const midDate = new Date();
+      midDate.setDate(midDate.getDate() - midPoint);
+      
+      const recentActivity = activities.filter(a => 
+        a.userId === studentKey && new Date(a.createdAt) >= midDate
+      ).length;
+      const olderActivity = student.totalActivity - recentActivity;
+      
+      if (olderActivity > 0) {
+        student.velocityTrend = recentActivity > olderActivity ? 'increasing' : 
+                              recentActivity < olderActivity ? 'decreasing' : 'stable';
+      } else {
+        student.velocityTrend = recentActivity > 0 ? 'new' : 'inactive';
+      }
+    });
+
+    return studentId 
+      ? velocityByStudent[studentId] || null
+      : Object.values(velocityByStudent);
+  }
+
+  async getLiveTeamActivity(): Promise<any[]> {
+    const thirtyMinutesAgo = new Date();
+    thirtyMinutesAgo.setMinutes(thirtyMinutesAgo.getMinutes() - 30);
+
+    const recentActivity = await db
+      .select({
+        id: taskActivity.id,
+        type: taskActivity.type,
+        message: taskActivity.message,
+        createdAt: taskActivity.createdAt,
+        studentName: sql<string>`${users.firstName} || ' ' || ${users.lastName}`,
+        taskTitle: projectTasks.title,
+        projectName: projects.name,
+        taskStatus: projectTasks.status,
+        taskProgress: projectTasks.progressPct,
+      })
+      .from(taskActivity)
+      .innerJoin(users, eq(taskActivity.userId, users.id))
+      .innerJoin(projectTasks, eq(taskActivity.taskId, projectTasks.id))
+      .innerJoin(projects, eq(projectTasks.projectId, projects.id))
+      .where(and(
+        gte(taskActivity.createdAt, thirtyMinutesAgo),
+        eq(users.role, 'student')
+      ))
+      .orderBy(desc(taskActivity.createdAt))
+      .limit(50);
+
+    return recentActivity.map(activity => ({
+      id: activity.id,
+      type: activity.type,
+      message: activity.message,
+      createdAt: activity.createdAt.toISOString(),
+      studentName: activity.studentName,
+      taskTitle: activity.taskTitle,
+      projectName: activity.projectName,
+      taskStatus: activity.taskStatus,
+      taskProgress: activity.taskProgress,
+      timeAgo: this.calculateTimeAgo(activity.createdAt),
+    }));
+  }
+
+  private calculateTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
   }
 }
 

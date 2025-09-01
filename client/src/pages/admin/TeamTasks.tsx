@@ -50,10 +50,19 @@ import {
   EyeOff,
   ArrowUp,
   ArrowDown,
-  Home
+  Home,
+  Activity,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Zap,
+  UserCheck,
+  UserX
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
+import VelocityMetrics from "@/components/admin/VelocityMetrics";
+import LiveActivity from "@/components/admin/LiveActivity";
 
 interface TeamTask {
   id: string;
@@ -122,7 +131,7 @@ export default function TeamTasks() {
   const queryClient = useQueryClient();
 
   // View state
-  const [currentView, setCurrentView] = useState<'tasks' | 'students'>('tasks');
+  const [currentView, setCurrentView] = useState<'tasks' | 'students' | 'live-monitoring' | 'velocity'>('tasks');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -141,6 +150,13 @@ export default function TeamTasks() {
   const [bulkStatus, setBulkStatus] = useState("");
   const [bulkPriority, setBulkPriority] = useState("");
   const [bulkComment, setBulkComment] = useState("");
+  const [bulkDueDate, setBulkDueDate] = useState("");
+  const [bulkAssignee, setBulkAssignee] = useState("");
+
+  // Phase 2: Velocity tracking and live monitoring
+  const [showVelocityMetrics, setShowVelocityMetrics] = useState(false);
+  const [velocityDays, setVelocityDays] = useState(7);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   // Build query parameters for API call
   const buildQueryParams = () => {
@@ -175,6 +191,26 @@ export default function TeamTasks() {
     enabled: currentView === 'students',
   });
 
+  // Phase 2: Fetch velocity metrics
+  const { data: velocityMetrics, isLoading: velocityLoading, refetch: refetchVelocity } = useQuery({
+    queryKey: ['/api/admin/velocity-metrics', velocityDays],
+    enabled: showVelocityMetrics,
+    refetchInterval: autoRefresh ? 60000 : false, // Auto-refresh every minute if enabled
+  });
+
+  // Phase 2: Fetch live activity
+  const { data: liveActivity, isLoading: activityLoading, refetch: refetchActivity } = useQuery({
+    queryKey: ['/api/admin/live-activity'],
+    enabled: autoRefresh || currentView === 'live-monitoring',
+    refetchInterval: autoRefresh ? 30000 : false, // Auto-refresh every 30 seconds
+  });
+
+  // Phase 2: Fetch all users for task reassignment
+  const { data: allUsers } = useQuery({
+    queryKey: ['/api/users'],
+    enabled: showBulkActions,
+  });
+
   // Bulk update mutation
   const bulkUpdateMutation = useMutation({
     mutationFn: async (data: { taskIds: string[], updates: any }) => {
@@ -189,6 +225,8 @@ export default function TeamTasks() {
       setShowBulkActions(false);
       setBulkStatus("");
       setBulkPriority("");
+      setBulkDueDate("");
+      setBulkAssignee("");
       refetchTasks();
     },
     onError: (error: any) => {
@@ -246,6 +284,8 @@ export default function TeamTasks() {
     const updates: any = {};
     if (bulkStatus) updates.status = bulkStatus;
     if (bulkPriority) updates.priority = bulkPriority;
+    if (bulkDueDate) updates.dueDate = bulkDueDate;
+    if (bulkAssignee) updates.assigneeId = bulkAssignee;
     
     if (Object.keys(updates).length > 0) {
       bulkUpdateMutation.mutate({ taskIds: selectedTasks, updates });
@@ -327,6 +367,22 @@ export default function TeamTasks() {
               >
                 <Users className="h-4 w-4 mr-2" />
                 Students
+              </Button>
+              <Button
+                variant={currentView === 'velocity' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setCurrentView('velocity')}
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Velocity
+              </Button>
+              <Button
+                variant={currentView === 'live-monitoring' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setCurrentView('live-monitoring')}
+              >
+                <Activity className="h-4 w-4 mr-2" />
+                Live
               </Button>
             </div>
           </div>
@@ -768,6 +824,19 @@ export default function TeamTasks() {
             </CardContent>
           </Card>
         )}
+
+        {/* Velocity Metrics View */}
+        {currentView === 'velocity' && (
+          <VelocityMetrics autoRefresh={autoRefresh} />
+        )}
+
+        {/* Live Monitoring View */}
+        {currentView === 'live-monitoring' && (
+          <LiveActivity 
+            autoRefresh={autoRefresh} 
+            onAutoRefreshChange={setAutoRefresh}
+          />
+        )}
       </div>
 
       {/* Bulk Actions Dialog */}
@@ -812,11 +881,37 @@ export default function TeamTasks() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <Label>Change Due Date</Label>
+                  <Input
+                    type="date"
+                    value={bulkDueDate}
+                    onChange={(e) => setBulkDueDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label>Reassign To</Label>
+                  <Select value={bulkAssignee} onValueChange={setBulkAssignee}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select student" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allUsers?.filter((u: any) => u.role === 'student').map((user: any) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.firstName} {user.lastName} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <Button 
                 onClick={handleBulkUpdate}
-                disabled={!bulkStatus && !bulkPriority || bulkUpdateMutation.isPending}
+                disabled={(!bulkStatus && !bulkPriority && !bulkDueDate && !bulkAssignee) || bulkUpdateMutation.isPending}
                 className="w-full"
               >
                 {bulkUpdateMutation.isPending ? "Updating..." : "Update Selected Tasks"}
