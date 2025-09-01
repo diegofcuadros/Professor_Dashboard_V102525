@@ -154,6 +154,7 @@ export default function TaskList({ projectId, title = "My Tasks", showProject = 
                       task={task}
                       showProject={showProject}
                       onTaskCompleted={() => refetch()}
+                      onTaskUpdated={() => refetch()}
                     />
                   ))}
                 </div>
@@ -173,6 +174,7 @@ export default function TaskList({ projectId, title = "My Tasks", showProject = 
                       key={task.id}
                       task={task}
                       showProject={showProject}
+                      onTaskUpdated={() => refetch()}
                     />
                   ))}
                 </div>

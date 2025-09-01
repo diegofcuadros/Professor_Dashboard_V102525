@@ -683,6 +683,9 @@ export class DatabaseStorage implements IStorage {
         createdBy: projectTasks.createdBy,
         createdAt: projectTasks.createdAt,
         updatedAt: projectTasks.updatedAt,
+        // Sprint A fields
+        status: projectTasks.status,
+        progressPct: projectTasks.progressPct,
         projectName: projects.name,
       })
       .from(projectTasks)
@@ -704,7 +707,23 @@ export class DatabaseStorage implements IStorage {
 
   async getUserTasksForProject(userId: string, projectId: string): Promise<(ProjectTask & { isCompleted?: boolean })[]> {
     const userTasks = await db
-      .select()
+      .select({
+        id: projectTasks.id,
+        projectId: projectTasks.projectId,
+        title: projectTasks.title,
+        description: projectTasks.description,
+        dueDate: projectTasks.dueDate,
+        priority: projectTasks.priority,
+        estimatedHours: projectTasks.estimatedHours,
+        isRequired: projectTasks.isRequired,
+        orderIndex: projectTasks.orderIndex,
+        createdBy: projectTasks.createdBy,
+        createdAt: projectTasks.createdAt,
+        updatedAt: projectTasks.updatedAt,
+        // Sprint A fields
+        status: projectTasks.status,
+        progressPct: projectTasks.progressPct,
+      })
       .from(projectTasks)
       .innerJoin(taskAssignments, eq(projectTasks.id, taskAssignments.taskId))
       .where(and(
@@ -712,8 +731,7 @@ export class DatabaseStorage implements IStorage {
         eq(taskAssignments.userId, userId),
         eq(taskAssignments.isActive, true)
       ))
-      .orderBy(projectTasks.orderIndex, projectTasks.createdAt)
-      .then(rows => rows.map(row => row.project_tasks));
+      .orderBy(projectTasks.orderIndex, projectTasks.createdAt);
 
     // Check completion status for each task
     const tasksWithCompletionStatus = await Promise.all(
