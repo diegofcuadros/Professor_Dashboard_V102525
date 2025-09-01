@@ -234,15 +234,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertProjectAssignmentSchema.parse(req.body);
       const assignment = await storage.createProjectAssignment(validatedData);
-      
-      // Notify the assigned user about the project assignment
-      await notificationService.notifyProjectAssignment(
-        validatedData.projectId, 
-        validatedData.userId, 
-        currentUser.id, 
-        validatedData.role || 'team member'
-      );
-      
+
+      // Best-effort notification (must not break main flow)
+      try {
+        if (typeof (notificationService as any)?.notifyProjectAssignment === 'function') {
+          await (notificationService as any).notifyProjectAssignment(
+            validatedData.projectId,
+            validatedData.userId,
+            currentUser.id,
+            validatedData.role || 'team member'
+          );
+        }
+      } catch (notifyErr) {
+        console.error('Project assignment notification failed:', notifyErr);
+      }
+
       res.status(201).json(assignment);
     } catch (error) {
       if (error instanceof z.ZodError) {
