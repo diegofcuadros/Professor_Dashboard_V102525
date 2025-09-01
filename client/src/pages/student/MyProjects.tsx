@@ -29,7 +29,7 @@ export default function MyProjects() {
 
   // Fetch user's assigned projects
   const { data: projects, isLoading } = useQuery<ProjectWithAssignment[]>({
-    queryKey: ["/api/assignments/user", user?.id],
+    queryKey: [`/api/assignments/user/${user?.id}`],
     enabled: !!user?.id,
   });
 

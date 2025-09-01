@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 const studentSidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: 'chart-line' },
   { id: 'projects', label: 'My Projects', icon: 'project-diagram' },
+  { id: 'messages', label: 'Messages', icon: 'message-circle' },
   { id: 'schedule', label: 'Schedule', icon: 'calendar-alt' },
   { id: 'progress', label: 'Progress', icon: 'tasks' },
   { id: 'insights', label: 'AI Insights', icon: 'lightbulb' },
@@ -27,18 +28,19 @@ export default function StudentDashboard() {
   const [activeSection, setActiveSection] = useState('dashboard');
 
   const { data: userMetrics, isLoading: metricsLoading, error: metricsError } = useQuery({
-    queryKey: ["/api/analytics/user", user?.id],
+    queryKey: [`/api/analytics/user/${user?.id}`],
     retry: false,
     enabled: !!user?.id,
   });
 
   const { data: userProjects, isLoading: projectsLoading, error: projectsError } = useQuery({
-    queryKey: ["/api/projects"],
+    queryKey: [`/api/assignments/user/${user?.id}`],
     retry: false,
+    enabled: !!user?.id,
   });
 
   const { data: notifications } = useQuery({
-    queryKey: ["/api/notifications/user", user?.id],
+    queryKey: [`/api/notifications/user/${user?.id}`],
     retry: false,
     enabled: !!user?.id,
   });
@@ -235,6 +237,77 @@ export default function StudentDashboard() {
                     <Projector className="w-12 h-12 mx-auto mb-2 opacity-50" />
                     <p>No projects assigned yet</p>
                     <p className="text-sm">Contact your supervisor to get started</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'messages' && (
+            <div className="p-6">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-foreground mb-2">Messages</h2>
+                <p className="text-muted-foreground">Your messages and notifications from professors</p>
+              </div>
+              
+              <div className="space-y-4">
+                {notifications && notifications.length > 0 ? (
+                  notifications.map((notification: any) => (
+                    <div 
+                      key={notification.id} 
+                      className={`border border-border rounded-lg p-4 ${
+                        !notification.readAt ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/20' : 'bg-card'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-semibold text-foreground">{notification.title}</h3>
+                        <div className="flex items-center gap-2">
+                          {!notification.readAt && (
+                            <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">NEW</span>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(notification.sentAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <p className="text-muted-foreground mb-3">{notification.message}</p>
+                      
+                      {notification.metadata?.fromUserName && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground border-t pt-2">
+                          <span>From: {notification.metadata.fromUserName}</span>
+                          {notification.metadata?.fromUserRole && (
+                            <span className="capitalize">({notification.metadata.fromUserRole})</span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {!notification.readAt && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-3"
+                          onClick={async () => {
+                            try {
+                              await fetch(`/api/notifications/${notification.id}/read`, {
+                                method: 'PUT',
+                                credentials: 'include'
+                              });
+                              // Refresh notifications
+                              window.location.reload();
+                            } catch (error) {
+                              console.error('Error marking notification as read:', error);
+                            }
+                          }}
+                        >
+                          Mark as Read
+                        </Button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No messages yet. Your professors' messages will appear here.</p>
                   </div>
                 )}
               </div>

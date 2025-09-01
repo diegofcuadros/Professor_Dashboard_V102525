@@ -278,11 +278,36 @@ export class DatabaseStorage implements IStorage {
     return newAssignment;
   }
 
-  async getUserAssignments(userId: string): Promise<ProjectAssignment[]> {
+  async getUserAssignments(userId: string): Promise<any[]> {
+    // Return assignments with project details for student dashboard
     return await db
-      .select()
+      .select({
+        // Assignment fields
+        id: projectAssignments.id,
+        userId: projectAssignments.userId,
+        projectId: projectAssignments.projectId,
+        assignedAt: projectAssignments.assignedAt,
+        isActive: projectAssignments.isActive,
+        // Project fields  
+        name: projects.name,
+        description: projects.description,
+        status: projects.status,
+        startDate: projects.startDate,
+        targetEndDate: projects.targetEndDate,
+        actualEndDate: projects.actualEndDate,
+        priority: projects.priority,
+        researchField: projects.researchField,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+      })
       .from(projectAssignments)
-      .where(and(eq(projectAssignments.userId, userId), eq(projectAssignments.isActive, true)));
+      .innerJoin(projects, eq(projectAssignments.projectId, projects.id))
+      .where(and(
+        eq(projectAssignments.userId, userId), 
+        eq(projectAssignments.isActive, true),
+        eq(projects.isActive, true)
+      ))
+      .orderBy(desc(projectAssignments.assignedAt));
   }
 
   async getProjectAssignments(projectId: string): Promise<ProjectAssignment[]> {
@@ -343,16 +368,57 @@ export class DatabaseStorage implements IStorage {
 
   // Analytics operations
   async getUserMetrics(userId: string): Promise<any> {
-    // This would contain complex queries for user analytics
-    // For Phase 1, we'll return basic metrics
+    // Get comprehensive user metrics for student dashboard
     const assignments = await this.getUserAssignments(userId);
     const progress = await this.getUserProgress(userId);
+    const tasks = await this.getUserTasks(userId);
+    
+    // Calculate meaningful metrics
+    const activeTasks = tasks.filter(t => t.status !== 'completed');
+    const completedTasks = tasks.filter(t => t.status === 'completed');
+    const overdueTasks = tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'completed');
+    
+    // Calculate average progress across all tasks
+    const totalProgress = tasks.reduce((sum, task) => sum + (task.progressPct || 0), 0);
+    const averageProgress = tasks.length > 0 ? Math.round(totalProgress / tasks.length) : 0;
+    
+    // Calculate productivity score based on completion rate and timeliness
+    const completionRate = tasks.length > 0 ? (completedTasks.length / tasks.length) * 100 : 0;
+    const overdueRate = tasks.length > 0 ? (overdueTasks.length / tasks.length) * 100 : 0;
+    const productivityScore = Math.max(0, Math.round(completionRate - (overdueRate * 0.5)));
+    
+    // Recent activity (last 7 days)
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const recentProgress = progress.filter(p => new Date(p.createdAt) > weekAgo);
     
     return {
+      // Project metrics
       activeProjects: assignments.length,
+      
+      // Task metrics  
+      totalTasks: tasks.length,
+      activeTasks: activeTasks.length,
+      completedTasks: completedTasks.length,
+      overdueTasks: overdueTasks.length,
+      
+      // Progress metrics
       totalUpdates: progress.length,
-      weeklyHours: 0, // Will be calculated from time logs
-      productivityScore: 85, // Placeholder for Phase 1
+      recentUpdates: recentProgress.length,
+      averageProgress,
+      completionRate: Math.round(completionRate),
+      
+      // Performance metrics
+      productivityScore,
+      weeklyHours: Math.round(recentProgress.length * 2), // Estimate based on updates
+      
+      // Trend data
+      isImproving: recentProgress.length > progress.length / 4, // More than 25% of updates in last week
+      riskLevel: overdueRate > 30 ? 'high' : overdueRate > 10 ? 'medium' : 'low',
+      
+      // Additional metadata
+      lastActiveDate: progress.length > 0 ? progress[0].createdAt : null,
+      memberSince: assignments.length > 0 ? assignments[0].assignedAt : null,
     };
   }
 

@@ -279,6 +279,89 @@ export class NotificationService {
       console.error('Error sending direct message:', error);
     }
   }
+
+  // In-app notification creation (for dashboard display)
+  async createNotification(notificationData: {
+    userId: string;
+    title: string;
+    message: string;
+    type: string;
+    relatedEntityType?: string;
+    relatedEntityId?: string;
+    metadata?: any;
+  }) {
+    try {
+      const notification = await storage.createNotification({
+        userId: notificationData.userId,
+        title: notificationData.title,
+        message: notificationData.message,
+        type: notificationData.type,
+        relatedEntityType: notificationData.relatedEntityType,
+        relatedEntityId: notificationData.relatedEntityId,
+        metadata: notificationData.metadata,
+        sentAt: new Date(),
+      });
+      
+      console.log(`📬 Created in-app notification for user ${notificationData.userId}: ${notificationData.title}`);
+      return notification;
+    } catch (error) {
+      console.error('Error creating in-app notification:', error);
+      throw error;
+    }
+  }
+
+  // Enhanced sendDirectMessage that creates both in-app notification AND optional email
+  async sendDirectMessageWithNotification(fromUserId: string, toUserId: string, subject: string, message: string, sendEmail: boolean = false) {
+    try {
+      const [fromUser, toUser] = await Promise.all([
+        storage.getUser(fromUserId),
+        storage.getUser(toUserId)
+      ]);
+
+      if (!fromUser || !toUser) return;
+
+      // 1. ALWAYS create in-app notification for dashboard
+      await this.createNotification({
+        userId: toUserId,
+        title: subject,
+        message: message,
+        type: 'direct_message',
+        relatedEntityType: 'message',
+        relatedEntityId: fromUserId,
+        metadata: {
+          fromUserId: fromUserId,
+          fromUserName: `${fromUser.firstName || ''} ${fromUser.lastName || ''}`.trim() || fromUser.email,
+          fromUserRole: fromUser.role,
+          isDirectMessage: true,
+        }
+      });
+
+      // 2. Optionally send email (if requested)
+      if (sendEmail) {
+        const isFromProfessor = fromUser.role === 'professor' || fromUser.role === 'admin';
+        const template = isFromProfessor
+          ? ProfessorEmailTemplates.DIRECT_MESSAGE
+          : StudentEmailTemplates.PROFESSOR_MESSAGE;
+
+        const email = generateEmailFromTemplate(template, {
+          recipientName: `${toUser.firstName || ''} ${toUser.lastName || ''}`.trim() || toUser.email,
+          senderName: `${fromUser.firstName || ''} ${fromUser.lastName || ''}`.trim() || fromUser.email,
+          senderRole: fromUser.role || 'team member',
+          subject: subject,
+          message: message,
+          dashboardUrl: process.env.APP_URL || 'http://localhost:3000'
+        });
+
+        await sendEmail(toUser.email, email.subject, email.html);
+        console.log(`📧 Email sent from ${fromUser.email} to ${toUser.email}`);
+      }
+
+      console.log(`✅ Direct message sent from ${fromUser.email} to ${toUser.email} (in-app: ✅, email: ${sendEmail ? '✅' : '❌'})`);
+    } catch (error) {
+      console.error('Error sending direct message with notification:', error);
+      throw error;
+    }
+  }
 }
 
 export const notificationService = new NotificationService();

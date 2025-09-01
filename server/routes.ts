@@ -317,23 +317,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notification Routes
-  app.get('/api/notifications/user/:userId', isAuthenticated, async (req, res) => {
-    try {
-      const currentUser = req.user!;
-
-      // Users can only see their own notifications
-      if (req.params.userId !== currentUser.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      const notifications = await storage.getUserNotifications(req.params.userId);
-      res.json(notifications);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      res.status(500).json({ message: "Failed to fetch notifications" });
-    }
-  });
-
   app.put('/api/notifications/:id/read', isAuthenticated, async (req: any, res) => {
     try {
       const notification = await storage.markNotificationAsRead(req.params.id);
@@ -376,6 +359,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching lab metrics:", error);
       res.status(500).json({ message: "Failed to fetch lab metrics" });
+    }
+  });
+
+  // Student Data API Endpoints
+  
+  // Get user assignments (for student projects)
+  app.get('/api/assignments/user/:userId', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const { userId } = req.params;
+      
+      // Students can only see their own assignments, professors/admins can see any
+      if (userId !== currentUser.id && 
+          currentUser.role !== 'admin' && 
+          currentUser.role !== 'professor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const assignments = await storage.getUserAssignments(userId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching user assignments:", error);
+      res.status(500).json({ message: "Failed to fetch assignments" });
+    }
+  });
+
+  // Get user notifications
+  app.get('/api/notifications/user/:userId', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const { userId } = req.params;
+      
+      // Users can only see their own notifications unless they're admin/professor
+      if (userId !== currentUser.id && 
+          currentUser.role !== 'admin' && 
+          currentUser.role !== 'professor') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const notifications = await storage.getUserNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching user notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
     }
   });
 
@@ -1172,8 +1199,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Recipient not found or inactive" });
       }
       
-      // Send the direct message via email
-      await notificationService.sendDirectMessage(currentUser.id, recipientId, subject, message);
+      // Send the direct message with in-app notification (email disabled by default)
+      await notificationService.sendDirectMessageWithNotification(currentUser.id, recipientId, subject, message, false);
       
       res.json({ success: true, message: "Message sent successfully" });
     } catch (error) {
