@@ -141,6 +141,12 @@ export interface IStorage {
   getTaskAssignees(taskId: string): Promise<User[]>;
   getUsersByRole(role: string): Promise<User[]>;
   getWorkSchedule(id: string): Promise<WorkSchedule | undefined>;
+  
+  // Sprint C: Team oversight methods
+  getAllTeamTasks(filter?: any): Promise<any[]>;
+  getStudentTaskSummaries(): Promise<any[]>;
+  updateTasksBulk(taskIds: string[], updates: any, userId: string): Promise<void>;
+  addBulkComment(taskIds: string[], message: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -870,6 +876,231 @@ export class DatabaseStorage implements IStorage {
   async getWorkSchedule(id: string): Promise<WorkSchedule | undefined> {
     const [schedule] = await db.select().from(workSchedules).where(eq(workSchedules.id, id));
     return schedule;
+  }
+
+  // Sprint C: Team Oversight Implementation
+  async getAllTeamTasks(filter?: any): Promise<any[]> {
+    const query = await db
+      .select({
+        // Task fields
+        id: projectTasks.id,
+        title: projectTasks.title,
+        description: projectTasks.description,
+        status: projectTasks.status,
+        progressPct: projectTasks.progressPct,
+        priority: projectTasks.priority,
+        dueDate: projectTasks.dueDate,
+        isRequired: projectTasks.isRequired,
+        estimatedHours: projectTasks.estimatedHours,
+        createdAt: projectTasks.createdAt,
+        updatedAt: projectTasks.updatedAt,
+        // Project fields
+        projectId: projects.id,
+        projectName: projects.name,
+        // Student fields
+        studentId: users.id,
+        studentName: sql<string>`${users.firstName} || ' ' || ${users.lastName}`,
+        studentEmail: users.email,
+        studentDepartment: users.department,
+      })
+      .from(projectTasks)
+      .innerJoin(projects, eq(projectTasks.projectId, projects.id))
+      .innerJoin(taskAssignments, eq(projectTasks.id, taskAssignments.taskId))
+      .innerJoin(users, eq(taskAssignments.userId, users.id))
+      .where(and(
+        eq(taskAssignments.isActive, true),
+        eq(users.role, 'student')
+      ))
+      .orderBy(desc(projectTasks.updatedAt));
+
+    // Calculate derived fields
+    const enhancedTasks = query.map(task => {
+      const now = new Date();
+      const updatedAt = new Date(task.updatedAt);
+      const daysSinceLastUpdate = Math.floor((now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24));
+      const isOverdue = task.dueDate ? new Date(task.dueDate) < now : false;
+      const isCompleted = task.status === 'completed' || (task.progressPct || 0) >= 100;
+      
+      // Calculate risk level
+      let riskScore = 0;
+      if (isOverdue) riskScore += 40;
+      if (task.status === 'blocked') riskScore += 30;
+      if (daysSinceLastUpdate > 7) riskScore += 20;
+      if ((task.progressPct || 0) < 25 && daysSinceLastUpdate > 3) riskScore += 10;
+      
+      const riskLevel = riskScore >= 50 ? 'high' : riskScore >= 25 ? 'medium' : 'low';
+
+      return {
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        status: task.status || 'pending',
+        progressPct: task.progressPct || 0,
+        priority: task.priority || 'medium',
+        dueDate: task.dueDate,
+        isRequired: task.isRequired,
+        estimatedHours: task.estimatedHours,
+        createdAt: task.createdAt.toISOString(),
+        updatedAt: task.updatedAt.toISOString(),
+        projectId: task.projectId,
+        projectName: task.projectName,
+        studentId: task.studentId,
+        studentName: task.studentName,
+        studentEmail: task.studentEmail,
+        isCompleted,
+        isOverdue,
+        daysSinceLastUpdate,
+        riskLevel,
+      };
+    });
+
+    // Apply basic filters
+    let filteredTasks = enhancedTasks;
+    
+    if (filter?.status) {
+      filteredTasks = filteredTasks.filter(task => filter.status.includes(task.status));
+    }
+    
+    if (filter?.riskLevel) {
+      filteredTasks = filteredTasks.filter(task => filter.riskLevel.includes(task.riskLevel));
+    }
+    
+    if (filter?.studentIds) {
+      filteredTasks = filteredTasks.filter(task => filter.studentIds.includes(task.studentId));
+    }
+    
+    if (filter?.projectIds) {
+      filteredTasks = filteredTasks.filter(task => filter.projectIds.includes(task.projectId));
+    }
+    
+    if (filter?.priorities) {
+      filteredTasks = filteredTasks.filter(task => filter.priorities.includes(task.priority));
+    }
+    
+    if (filter?.progressRange) {
+      const { min, max } = filter.progressRange;
+      filteredTasks = filteredTasks.filter(task => task.progressPct >= min && task.progressPct <= max);
+    }
+    
+    if (filter?.needsAttention) {
+      filteredTasks = filteredTasks.filter(task => 
+        task.isOverdue || task.status === 'blocked' || task.daysSinceLastUpdate > 7
+      );
+    }
+    
+    if (filter?.recentlyActive) {
+      filteredTasks = filteredTasks.filter(task => task.daysSinceLastUpdate <= 1);
+    }
+
+    return filteredTasks;
+  }
+
+  async getStudentTaskSummaries(): Promise<any[]> {
+    const students = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        department: users.department,
+      })
+      .from(users)
+      .where(eq(users.role, 'student'));
+
+    const summaries = await Promise.all(
+      students.map(async (student) => {
+        const tasks = await this.getAllTeamTasks({ studentIds: [student.id] });
+        
+        const totalTasks = tasks.length;
+        const completedTasks = tasks.filter((t: any) => t.isCompleted).length;
+        const inProgressTasks = tasks.filter((t: any) => t.status === 'in-progress').length;
+        const overdueTasks = tasks.filter((t: any) => t.isOverdue && !t.isCompleted).length;
+        const blockedTasks = tasks.filter((t: any) => t.status === 'blocked').length;
+        
+        const avgProgress = totalTasks > 0 
+          ? Math.round(tasks.reduce((sum: number, t: any) => sum + t.progressPct, 0) / totalTasks)
+          : 0;
+        
+        const completionRate = totalTasks > 0 
+          ? Math.round((completedTasks / totalTasks) * 100)
+          : 0;
+
+        // Calculate risk score
+        let riskScore = 0;
+        if (completionRate < 50) riskScore += 30;
+        if (overdueTasks > 0) riskScore += 25;
+        if (blockedTasks > 0) riskScore += 20;
+        if (avgProgress < 40) riskScore += 15;
+        if (tasks.some((t: any) => t.daysSinceLastUpdate > 7)) riskScore += 10;
+
+        const riskLevel = riskScore >= 50 ? 'high' : riskScore >= 25 ? 'medium' : 'low';
+
+        const lastActivity = tasks.length > 0 
+          ? Math.max(...tasks.map((t: any) => new Date(t.updatedAt).getTime()))
+          : undefined;
+
+        return {
+          studentId: student.id,
+          studentName: `${student.firstName} ${student.lastName}`,
+          studentEmail: student.email,
+          department: student.department,
+          totalTasks,
+          completedTasks,
+          inProgressTasks,
+          overdueTasks,
+          blockedTasks,
+          avgProgress,
+          completionRate,
+          riskScore,
+          riskLevel,
+          lastActivity: lastActivity ? new Date(lastActivity).toISOString() : undefined,
+          scheduleCompliance: 85, // TODO: Calculate from actual schedule data
+        };
+      })
+    );
+
+    return summaries.sort((a, b) => b.riskScore - a.riskScore);
+  }
+
+  async updateTasksBulk(taskIds: string[], updates: any, userId: string): Promise<void> {
+    for (const taskId of taskIds) {
+      const updateData: any = { updatedAt: new Date() };
+      
+      if (updates.status) {
+        updateData.status = updates.status;
+        // Log activity
+        await db.insert(taskActivity).values({
+          taskId,
+          userId,
+          type: 'status',
+          message: `Bulk status change to ${updates.status}`,
+        });
+      }
+
+      if (updates.priority) {
+        updateData.priority = updates.priority;
+      }
+
+      if (updates.dueDate) {
+        updateData.dueDate = new Date(updates.dueDate);
+      }
+
+      await db
+        .update(projectTasks)
+        .set(updateData)
+        .where(eq(projectTasks.id, taskId));
+    }
+  }
+
+  async addBulkComment(taskIds: string[], message: string, userId: string): Promise<void> {
+    for (const taskId of taskIds) {
+      await db.insert(taskActivity).values({
+        taskId,
+        userId,
+        type: 'comment',
+        message: `[Bulk Comment] ${message}`,
+      });
+    }
   }
 }
 

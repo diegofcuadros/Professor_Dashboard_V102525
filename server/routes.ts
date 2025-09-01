@@ -1326,6 +1326,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sprint C: Team Oversight API Endpoints
+  
+  // Get all team tasks with filtering
+  app.get('/api/admin/tasks/overview', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const filters = req.query;
+      
+      // Convert query params to filter object
+      const taskFilter: any = {};
+      
+      if (filters.status) {
+        taskFilter.status = Array.isArray(filters.status) ? filters.status : [filters.status];
+      }
+      
+      if (filters.riskLevel) {
+        taskFilter.riskLevel = Array.isArray(filters.riskLevel) ? filters.riskLevel : [filters.riskLevel];
+      }
+      
+      if (filters.studentIds) {
+        taskFilter.studentIds = Array.isArray(filters.studentIds) ? filters.studentIds : [filters.studentIds];
+      }
+      
+      if (filters.projectIds) {
+        taskFilter.projectIds = Array.isArray(filters.projectIds) ? filters.projectIds : [filters.projectIds];
+      }
+      
+      if (filters.priorities) {
+        taskFilter.priorities = Array.isArray(filters.priorities) ? filters.priorities : [filters.priorities];
+      }
+      
+      if (filters.progressMin || filters.progressMax) {
+        taskFilter.progressRange = {
+          min: parseInt(filters.progressMin as string) || 0,
+          max: parseInt(filters.progressMax as string) || 100
+        };
+      }
+      
+      if (filters.needsAttention === 'true') {
+        taskFilter.needsAttention = true;
+      }
+      
+      if (filters.recentlyActive === 'true') {
+        taskFilter.recentlyActive = true;
+      }
+      
+      const tasks = await storage.getAllTeamTasks(taskFilter);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching team tasks overview:", error);
+      res.status(500).json({ message: "Failed to fetch team tasks overview" });
+    }
+  });
+
+  // Get student task summaries
+  app.get('/api/admin/tasks/students', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const summaries = await storage.getStudentTaskSummaries();
+      res.json(summaries);
+    } catch (error) {
+      console.error("Error fetching student task summaries:", error);
+      res.status(500).json({ message: "Failed to fetch student task summaries" });
+    }
+  });
+
+  // Bulk update tasks
+  app.patch('/api/admin/tasks/bulk', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const { taskIds, updates } = req.body;
+      
+      if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+        return res.status(400).json({ message: "taskIds array is required" });
+      }
+      
+      if (!updates || typeof updates !== 'object') {
+        return res.status(400).json({ message: "updates object is required" });
+      }
+      
+      await storage.updateTasksBulk(taskIds, updates, currentUser.id);
+      
+      res.json({ 
+        message: `Successfully updated ${taskIds.length} tasks`,
+        affectedTasks: taskIds.length
+      });
+    } catch (error) {
+      console.error("Error in bulk task update:", error);
+      res.status(500).json({ message: "Failed to update tasks" });
+    }
+  });
+
+  // Add bulk comment to tasks
+  app.post('/api/admin/tasks/bulk-comment', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const { taskIds, message } = req.body;
+      
+      if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+        return res.status(400).json({ message: "taskIds array is required" });
+      }
+      
+      if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        return res.status(400).json({ message: "message is required" });
+      }
+      
+      await storage.addBulkComment(taskIds, message.trim(), currentUser.id);
+      
+      res.json({ 
+        message: `Successfully added comment to ${taskIds.length} tasks`,
+        affectedTasks: taskIds.length
+      });
+    } catch (error) {
+      console.error("Error adding bulk comment:", error);
+      res.status(500).json({ message: "Failed to add bulk comment" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
