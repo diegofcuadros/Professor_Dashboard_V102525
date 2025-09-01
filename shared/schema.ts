@@ -247,6 +247,7 @@ export type TaskAssignment = typeof taskAssignments.$inferSelect;
 export type InsertTaskCompletion = typeof taskCompletions.$inferInsert;
 export type TaskCompletion = typeof taskCompletions.$inferSelect;
 export type InsertTaskActivity = typeof taskActivity.$inferInsert;
+export type TaskActivity = typeof taskActivity.$inferSelect;
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
@@ -273,6 +274,21 @@ export const insertProjectTaskSchema = createInsertSchema(projectTasks).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+});
+
+// Sprint A: Task status/progress validation schemas
+export const updateTaskStatusSchema = z.object({
+  status: z.enum(['pending', 'in-progress', 'completed', 'blocked']),
+  note: z.string().optional(),
+});
+
+export const updateTaskProgressSchema = z.object({
+  progressPct: z.number().min(0).max(100),
+  note: z.string().optional(),
+});
+
+export const addTaskCommentSchema = z.object({
+  message: z.string().min(1, "Comment message is required"),
 });
 
 export const insertTaskAssignmentSchema = createInsertSchema(taskAssignments).omit({

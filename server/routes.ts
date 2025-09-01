@@ -16,7 +16,10 @@ import {
   insertWorkScheduleSchema,
   insertScheduleBlockSchema,
   createUserSchema,
-  loginSchema
+  loginSchema,
+  updateTaskStatusSchema,
+  updateTaskProgressSchema,
+  addTaskCommentSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { sendEmail } from './email';
@@ -926,11 +929,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/tasks/:taskId/status', isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user!;
-      const { status, note } = req.body;
-      const task = await storage.updateTaskStatus(req.params.taskId, status, currentUser.id, note);
+      const validatedData = updateTaskStatusSchema.parse(req.body);
+      const task = await storage.updateTaskStatus(req.params.taskId, validatedData.status, currentUser.id, validatedData.note);
       if (!task) return res.status(404).json({ message: 'Task not found' });
       res.json(task);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
       console.error('Error updating task status:', error);
       res.status(500).json({ message: 'Failed to update task status' });
     }
@@ -939,11 +945,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/tasks/:taskId/progress', isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user!;
-      const { progressPct, note } = req.body;
-      const task = await storage.updateTaskProgress(req.params.taskId, Number(progressPct), currentUser.id, note);
+      const validatedData = updateTaskProgressSchema.parse(req.body);
+      const task = await storage.updateTaskProgress(req.params.taskId, validatedData.progressPct, currentUser.id, validatedData.note);
       if (!task) return res.status(404).json({ message: 'Task not found' });
       res.json(task);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
       console.error('Error updating task progress:', error);
       res.status(500).json({ message: 'Failed to update task progress' });
     }
@@ -952,11 +961,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/tasks/:taskId/comment', isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user!;
-      const { message } = req.body;
-      if (!message) return res.status(400).json({ message: 'message is required' });
-      await storage.addTaskComment(req.params.taskId, currentUser.id, message);
+      const validatedData = addTaskCommentSchema.parse(req.body);
+      await storage.addTaskComment(req.params.taskId, currentUser.id, validatedData.message);
       res.status(201).json({ ok: true });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
       console.error('Error adding task comment:', error);
       res.status(500).json({ message: 'Failed to add task comment' });
     }

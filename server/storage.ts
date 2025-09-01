@@ -38,6 +38,7 @@ import {
   type InsertTimeLog,
   taskActivity,
   type InsertTaskActivity,
+  type TaskActivity,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { db } from "./db";
@@ -132,7 +133,7 @@ export interface IStorage {
   updateTaskStatus(taskId: string, status: string, userId: string, note?: string): Promise<ProjectTask | undefined>;
   updateTaskProgress(taskId: string, progressPct: number, userId: string, note?: string): Promise<ProjectTask | undefined>;
   addTaskComment(taskId: string, userId: string, message: string): Promise<void>;
-  getTaskActivity(taskId: string): Promise<InsertTaskActivity[]>;
+  getTaskActivity(taskId: string): Promise<TaskActivity[]>;
   
   // Additional methods for notification service
   getTask(id: string): Promise<ProjectTask | undefined>;
@@ -765,9 +766,13 @@ export class DatabaseStorage implements IStorage {
 
   async updateTaskProgress(taskId: string, progressPct: number, userId: string, note?: string): Promise<ProjectTask | undefined> {
     const clamped = Math.max(0, Math.min(100, progressPct));
+    const updates: any = { progressPct: clamped, updatedAt: new Date() };
+    if (clamped >= 100) {
+      updates.status = 'completed';
+    }
     const [task] = await db
       .update(projectTasks)
-      .set({ progressPct: clamped, updatedAt: new Date(), status: clamped >= 100 ? 'completed' : undefined as any })
+      .set(updates)
       .where(eq(projectTasks.id, taskId))
       .returning();
 
@@ -781,7 +786,7 @@ export class DatabaseStorage implements IStorage {
     await db.insert(taskActivity).values({ taskId, userId, type: 'comment', message });
   }
 
-  async getTaskActivity(taskId: string): Promise<InsertTaskActivity[]> {
+  async getTaskActivity(taskId: string): Promise<TaskActivity[]> {
     return await db
       .select()
       .from(taskActivity)
