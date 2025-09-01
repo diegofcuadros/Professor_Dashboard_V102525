@@ -24,6 +24,7 @@ import {
 import { z } from "zod";
 import { sendEmail } from './email';
 import { notificationService } from './notifications';
+import { alertService } from './alertService';
 import { aiNotificationService } from './ai-notifications';
 import { progressMonitor } from './progress-monitor';
 
@@ -1467,6 +1468,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching live activity:", error);
       res.status(500).json({ message: "Failed to fetch live activity" });
+    }
+  });
+
+  // Sprint D: Alert System API Endpoints
+
+  // Get active alerts
+  app.get('/api/admin/alerts', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const { userId } = req.query;
+      const alerts = await alertService.getActiveAlertsWithContext();
+      
+      // Filter by user if specified
+      const filteredAlerts = userId 
+        ? alerts.filter(alert => alert.userId === userId)
+        : alerts;
+      
+      res.json(filteredAlerts);
+    } catch (error) {
+      console.error("Error fetching alerts:", error);
+      res.status(500).json({ message: "Failed to fetch alerts" });
+    }
+  });
+
+  // Get alert statistics
+  app.get('/api/admin/alerts/stats', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const stats = await alertService.getAlertStatistics();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching alert statistics:", error);
+      res.status(500).json({ message: "Failed to fetch alert statistics" });
+    }
+  });
+
+  // Resolve an alert
+  app.patch('/api/admin/alerts/:alertId/resolve', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const { alertId } = req.params;
+      const { reason } = req.body;
+      const currentUser = req.user!;
+      
+      await alertService.resolveAlert(alertId, currentUser.id, reason);
+      
+      res.json({ 
+        message: "Alert resolved successfully",
+        alertId,
+        resolvedBy: currentUser.id 
+      });
+    } catch (error) {
+      console.error("Error resolving alert:", error);
+      res.status(500).json({ message: "Failed to resolve alert" });
+    }
+  });
+
+  // Get alert configurations
+  app.get('/api/admin/alert-configs', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const configs = await storage.getAlertConfigurations();
+      res.json(configs);
+    } catch (error) {
+      console.error("Error fetching alert configurations:", error);
+      res.status(500).json({ message: "Failed to fetch alert configurations" });
+    }
+  });
+
+  // Update alert configuration
+  app.patch('/api/admin/alert-configs/:configId', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const { configId } = req.params;
+      const updates = req.body;
+      
+      await storage.updateAlertConfiguration(configId, updates);
+      
+      res.json({ 
+        message: "Alert configuration updated successfully",
+        configId 
+      });
+    } catch (error) {
+      console.error("Error updating alert configuration:", error);
+      res.status(500).json({ message: "Failed to update alert configuration" });
+    }
+  });
+
+  // Manual alert generation (for testing/immediate checks)
+  app.post('/api/admin/alerts/generate', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const alerts = await alertService.generateAlerts();
+      
+      res.json({ 
+        message: "Alert generation completed",
+        generatedAlerts: alerts.length,
+        alerts: alerts.map(alert => ({
+          id: alert.id,
+          type: alert.type,
+          severity: alert.severity,
+          title: alert.title
+        }))
+      });
+    } catch (error) {
+      console.error("Error generating alerts manually:", error);
+      res.status(500).json({ message: "Failed to generate alerts" });
     }
   });
 

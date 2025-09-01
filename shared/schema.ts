@@ -188,6 +188,49 @@ export const taskActivity = pgTable("task_activity", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const alerts = pgTable("alerts", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: varchar("type", { length: 50 }).notNull(), // 'task_overdue', 'student_inactive', etc.
+  severity: varchar("severity", { length: 20 }).notNull().default("medium"), // 'low', 'medium', 'high', 'critical'
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  
+  // Alert context - flexible references
+  userId: varchar("user_id").references(() => users.id), // Student involved
+  projectId: uuid("project_id").references(() => projects.id), // Project involved
+  taskId: uuid("task_id").references(() => projectTasks.id), // Task involved
+  
+  // Alert metadata
+  data: jsonb("data"), // Additional context data
+  isResolved: boolean("is_resolved").default(false).notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const alertConfigurations = pgTable("alert_configurations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  alertType: varchar("alert_type", { length: 50 }).notNull(),
+  isEnabled: boolean("is_enabled").default(true).notNull(),
+  
+  // Configurable thresholds
+  thresholds: jsonb("thresholds").notNull(), // { days: 7, percentage: 30, etc. }
+  
+  // Notification preferences
+  inAppEnabled: boolean("in_app_enabled").default(true).notNull(),
+  emailEnabled: boolean("email_enabled").default(false).notNull(),
+  
+  // Frequency limits (to prevent spam)
+  maxAlertsPerDay: integer("max_alerts_per_day").default(10).notNull(),
+  cooldownHours: integer("cooldown_hours").default(24).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const taskAssignments = pgTable("task_assignments", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   taskId: uuid("task_id").references(() => projectTasks.id).notNull(),
@@ -248,6 +291,10 @@ export type InsertTaskCompletion = typeof taskCompletions.$inferInsert;
 export type TaskCompletion = typeof taskCompletions.$inferSelect;
 export type InsertTaskActivity = typeof taskActivity.$inferInsert;
 export type TaskActivity = typeof taskActivity.$inferSelect;
+export type InsertAlert = typeof alerts.$inferInsert;
+export type Alert = typeof alerts.$inferSelect;
+export type InsertAlertConfiguration = typeof alertConfigurations.$inferInsert;
+export type AlertConfiguration = typeof alertConfigurations.$inferSelect;
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,

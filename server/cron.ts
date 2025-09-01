@@ -3,6 +3,7 @@ import { storage } from './storage';
 import { sendEmail } from './email';
 import { notificationService } from './notifications';
 import { aiNotificationService } from './ai-notifications';
+import { alertService } from './alertService';
 
 export function setupWeeklyDigest() {
   const cronExpr = process.env.DIGEST_CRON || '0 8 * * MON';
@@ -156,6 +157,21 @@ export function setupLabInsightsReport() {
       console.log('✅ Weekly lab insights report completed');
     } catch (error) {
       console.error('❌ Lab insights report error:', error);
+    }
+  }, { timezone: 'UTC' });
+}
+
+export function setupAlertGeneration() {
+  console.log('🚨 Setting up automated alert generation...');
+  
+  // Alert generation - every 30 minutes
+  cron.schedule('*/30 * * * *', async () => {
+    console.log('🚨 Running automated alert generation...');
+    
+    try {
+      await alertService.generateAlerts();
+    } catch (error) {
+      console.error('❌ Error in automated alert generation:', error);
     }
   }, { timezone: 'UTC' });
 }

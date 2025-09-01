@@ -39,6 +39,12 @@ import {
   taskActivity,
   type InsertTaskActivity,
   type TaskActivity,
+  alerts,
+  alertConfigurations,
+  type Alert,
+  type InsertAlert,
+  type AlertConfiguration,
+  type InsertAlertConfiguration,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { db } from "./db";
@@ -150,6 +156,21 @@ export interface IStorage {
   // Sprint C Phase 2: Progress velocity tracking
   getProgressVelocityMetrics(studentId?: string, days?: number): Promise<any>;
   getLiveTeamActivity(): Promise<any[]>;
+  
+  // Sprint D: Alert System
+  createAlert(alert: InsertAlert): Promise<Alert>;
+  getActiveAlerts(userId?: string): Promise<Alert[]>;
+  resolveAlert(alertId: string, resolvedBy: string): Promise<void>;
+  getAlertConfigurations(): Promise<AlertConfiguration[]>;
+  updateAlertConfiguration(id: string, config: Partial<AlertConfiguration>): Promise<void>;
+  createDefaultAlertConfigurations(): Promise<void>;
+  
+  // Alert trigger methods
+  checkOverdueTasks(): Promise<Alert[]>;
+  checkInactiveStudents(): Promise<Alert[]>;
+  checkProjectRisks(): Promise<Alert[]>;
+  checkVelocityDrops(): Promise<Alert[]>;
+  checkTasksBlocked(): Promise<Alert[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1306,6 +1327,425 @@ export class DatabaseStorage implements IStorage {
     
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays}d ago`;
+  }
+
+  // Sprint D: Alert System Implementation
+  async createAlert(alert: InsertAlert): Promise<Alert> {
+    const [newAlert] = await db.insert(alerts).values(alert).returning();
+    return newAlert;
+  }
+
+  async getActiveAlerts(userId?: string): Promise<Alert[]> {
+    let query = db
+      .select({
+        id: alerts.id,
+        type: alerts.type,
+        severity: alerts.severity,
+        title: alerts.title,
+        message: alerts.message,
+        userId: alerts.userId,
+        projectId: alerts.projectId,
+        taskId: alerts.taskId,
+        data: alerts.data,
+        isResolved: alerts.isResolved,
+        resolvedAt: alerts.resolvedAt,
+        resolvedBy: alerts.resolvedBy,
+        createdAt: alerts.createdAt,
+        updatedAt: alerts.updatedAt,
+      })
+      .from(alerts)
+      .where(eq(alerts.isResolved, false))
+      .orderBy(desc(alerts.createdAt));
+
+    if (userId) {
+      query = query.where(and(eq(alerts.isResolved, false), eq(alerts.userId, userId)));
+    }
+
+    return await query;
+  }
+
+  async resolveAlert(alertId: string, resolvedBy: string): Promise<void> {
+    await db
+      .update(alerts)
+      .set({ 
+        isResolved: true, 
+        resolvedAt: new Date(), 
+        resolvedBy,
+        updatedAt: new Date()
+      })
+      .where(eq(alerts.id, alertId));
+  }
+
+  async getAlertConfigurations(): Promise<AlertConfiguration[]> {
+    return await db.select().from(alertConfigurations);
+  }
+
+  async updateAlertConfiguration(id: string, config: Partial<AlertConfiguration>): Promise<void> {
+    await db
+      .update(alertConfigurations)
+      .set({ ...config, updatedAt: new Date() })
+      .where(eq(alertConfigurations.id, id));
+  }
+
+  async createDefaultAlertConfigurations(): Promise<void> {
+    const defaultConfigs = [
+      {
+        alertType: 'task_overdue',
+        isEnabled: true,
+        thresholds: { days: 1, severity_escalation_days: 3 },
+        inAppEnabled: true,
+        emailEnabled: false,
+        maxAlertsPerDay: 5,
+        cooldownHours: 24,
+      },
+      {
+        alertType: 'student_inactive',
+        isEnabled: true,
+        thresholds: { days: 7 },
+        inAppEnabled: true,
+        emailEnabled: true,
+        maxAlertsPerDay: 2,
+        cooldownHours: 48,
+      },
+      {
+        alertType: 'project_risk',
+        isEnabled: true,
+        thresholds: { risk_percentage: 60 },
+        inAppEnabled: true,
+        emailEnabled: true,
+        maxAlertsPerDay: 3,
+        cooldownHours: 24,
+      },
+      {
+        alertType: 'velocity_drop',
+        isEnabled: true,
+        thresholds: { percentage_drop: 30, comparison_days: 7 },
+        inAppEnabled: true,
+        emailEnabled: false,
+        maxAlertsPerDay: 3,
+        cooldownHours: 48,
+      },
+      {
+        alertType: 'task_blocked',
+        isEnabled: true,
+        thresholds: { hours: 48 },
+        inAppEnabled: true,
+        emailEnabled: false,
+        maxAlertsPerDay: 5,
+        cooldownHours: 12,
+      },
+    ];
+
+    for (const config of defaultConfigs) {
+      await db.insert(alertConfigurations).values(config).onConflictDoNothing();
+    }
+  }
+
+  // Alert Trigger Methods
+  async checkOverdueTasks(): Promise<Alert[]> {
+    const overdueThreshold = new Date();
+    overdueThreshold.setDate(overdueThreshold.getDate() - 1); // 1 day overdue
+
+    const overdueTasks = await db
+      .select({
+        id: projectTasks.id,
+        title: projectTasks.title,
+        dueDate: projectTasks.dueDate,
+        studentId: taskAssignments.userId,
+        studentName: sql<string>`${users.firstName} || ' ' || ${users.lastName}`,
+        projectId: projectTasks.projectId,
+        projectName: projects.name,
+        status: projectTasks.status,
+        progressPct: projectTasks.progressPct,
+      })
+      .from(projectTasks)
+      .innerJoin(taskAssignments, and(
+        eq(projectTasks.id, taskAssignments.taskId),
+        eq(taskAssignments.isActive, true)
+      ))
+      .innerJoin(users, eq(taskAssignments.userId, users.id))
+      .innerJoin(projects, eq(projectTasks.projectId, projects.id))
+      .where(and(
+        sql`${projectTasks.dueDate} < ${overdueThreshold}`,
+        sql`${projectTasks.status} != 'completed'`,
+        eq(users.role, 'student')
+      ));
+
+    const generatedAlerts: Alert[] = [];
+
+    for (const task of overdueTasks) {
+      // Check if we already have an unresolved alert for this task
+      const existingAlert = await db
+        .select()
+        .from(alerts)
+        .where(and(
+          eq(alerts.taskId, task.id),
+          eq(alerts.type, 'task_overdue'),
+          eq(alerts.isResolved, false)
+        ))
+        .limit(1);
+
+      if (existingAlert.length === 0) {
+        const daysOverdue = Math.floor(
+          (new Date().getTime() - new Date(task.dueDate!).getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        const severity = daysOverdue >= 7 ? 'critical' : 
+                        daysOverdue >= 3 ? 'high' : 'medium';
+
+        const alert = await this.createAlert({
+          type: 'task_overdue',
+          severity,
+          title: `Task Overdue: ${task.title}`,
+          message: `Task "${task.title}" in project "${task.projectName}" is ${daysOverdue} day(s) overdue. Assigned to ${task.studentName}.`,
+          userId: task.studentId,
+          projectId: task.projectId,
+          taskId: task.id,
+          data: {
+            daysOverdue,
+            originalDueDate: task.dueDate,
+            currentProgress: task.progressPct,
+            currentStatus: task.status,
+          },
+        });
+
+        generatedAlerts.push(alert);
+      }
+    }
+
+    return generatedAlerts;
+  }
+
+  async checkInactiveStudents(): Promise<Alert[]> {
+    const inactiveThreshold = new Date();
+    inactiveThreshold.setDate(inactiveThreshold.getDate() - 7); // 7 days inactive
+
+    const students = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+      })
+      .from(users)
+      .where(eq(users.role, 'student'));
+
+    const generatedAlerts: Alert[] = [];
+
+    for (const student of students) {
+      // Check for recent activity
+      const recentActivity = await db
+        .select()
+        .from(taskActivity)
+        .where(and(
+          eq(taskActivity.userId, student.id),
+          sql`${taskActivity.createdAt} > ${inactiveThreshold}`
+        ))
+        .limit(1);
+
+      if (recentActivity.length === 0) {
+        // Check if we already have an unresolved alert for this student
+        const existingAlert = await db
+          .select()
+          .from(alerts)
+          .where(and(
+            eq(alerts.userId, student.id),
+            eq(alerts.type, 'student_inactive'),
+            eq(alerts.isResolved, false)
+          ))
+          .limit(1);
+
+        if (existingAlert.length === 0) {
+          const alert = await this.createAlert({
+            type: 'student_inactive',
+            severity: 'medium',
+            title: `Inactive Student: ${student.firstName} ${student.lastName}`,
+            message: `${student.firstName} ${student.lastName} (${student.email}) has not shown any task activity in the past 7 days.`,
+            userId: student.id,
+            data: {
+              inactiveDays: 7,
+              lastSeenThreshold: inactiveThreshold.toISOString(),
+            },
+          });
+
+          generatedAlerts.push(alert);
+        }
+      }
+    }
+
+    return generatedAlerts;
+  }
+
+  async checkProjectRisks(): Promise<Alert[]> {
+    const projects = await db
+      .select({
+        id: projects.id,
+        name: projects.name,
+        description: projects.description,
+      })
+      .from(projects)
+      .where(eq(projects.isActive, true));
+
+    const generatedAlerts: Alert[] = [];
+
+    for (const project of projects) {
+      // Get all tasks for this project
+      const tasks = await this.getAllTeamTasks({ projectIds: [project.id] });
+      
+      if (tasks.length === 0) continue;
+
+      const highRiskTasks = tasks.filter((t: any) => t.riskLevel === 'high');
+      const riskPercentage = (highRiskTasks.length / tasks.length) * 100;
+
+      if (riskPercentage >= 60) { // 60% threshold
+        // Check if we already have an unresolved alert for this project
+        const existingAlert = await db
+          .select()
+          .from(alerts)
+          .where(and(
+            eq(alerts.projectId, project.id),
+            eq(alerts.type, 'project_risk'),
+            eq(alerts.isResolved, false)
+          ))
+          .limit(1);
+
+        if (existingAlert.length === 0) {
+          const severity = riskPercentage >= 80 ? 'critical' : 'high';
+
+          const alert = await this.createAlert({
+            type: 'project_risk',
+            severity,
+            title: `High Risk Project: ${project.name}`,
+            message: `Project "${project.name}" has ${Math.round(riskPercentage)}% of tasks marked as high-risk. Immediate attention may be required.`,
+            projectId: project.id,
+            data: {
+              riskPercentage: Math.round(riskPercentage),
+              totalTasks: tasks.length,
+              highRiskTasks: highRiskTasks.length,
+              riskFactors: highRiskTasks.map((t: any) => ({
+                taskId: t.id,
+                title: t.title,
+                studentName: t.studentName,
+                reason: t.isOverdue ? 'overdue' : t.status === 'blocked' ? 'blocked' : 'stale'
+              }))
+            },
+          });
+
+          generatedAlerts.push(alert);
+        }
+      }
+    }
+
+    return generatedAlerts;
+  }
+
+  async checkVelocityDrops(): Promise<Alert[]> {
+    const velocityMetrics = await this.getProgressVelocityMetrics();
+    const generatedAlerts: Alert[] = [];
+
+    if (Array.isArray(velocityMetrics)) {
+      for (const metric of velocityMetrics) {
+        if (metric.velocityTrend === 'decreasing' && metric.velocityScore < 30) {
+          // Check if we already have an unresolved alert for this student
+          const existingAlert = await db
+            .select()
+            .from(alerts)
+            .where(and(
+              eq(alerts.userId, metric.studentId),
+              eq(alerts.type, 'velocity_drop'),
+              eq(alerts.isResolved, false)
+            ))
+            .limit(1);
+
+          if (existingAlert.length === 0) {
+            const alert = await this.createAlert({
+              type: 'velocity_drop',
+              severity: 'medium',
+              title: `Velocity Drop: ${metric.studentName}`,
+              message: `${metric.studentName}'s productivity has been declining. Velocity score is ${metric.velocityScore} with a decreasing trend.`,
+              userId: metric.studentId,
+              data: {
+                velocityScore: metric.velocityScore,
+                trend: metric.velocityTrend,
+                totalActivity: metric.totalActivity,
+                uniqueTasksWorkedOn: metric.uniqueTasksWorkedOn,
+              },
+            });
+
+            generatedAlerts.push(alert);
+          }
+        }
+      }
+    }
+
+    return generatedAlerts;
+  }
+
+  async checkTasksBlocked(): Promise<Alert[]> {
+    const blockedThreshold = new Date();
+    blockedThreshold.setHours(blockedThreshold.getHours() - 48); // 48 hours blocked
+
+    const blockedTasks = await db
+      .select({
+        id: projectTasks.id,
+        title: projectTasks.title,
+        updatedAt: projectTasks.updatedAt,
+        studentId: taskAssignments.userId,
+        studentName: sql<string>`${users.firstName} || ' ' || ${users.lastName}`,
+        projectId: projectTasks.projectId,
+        projectName: projects.name,
+      })
+      .from(projectTasks)
+      .innerJoin(taskAssignments, and(
+        eq(projectTasks.id, taskAssignments.taskId),
+        eq(taskAssignments.isActive, true)
+      ))
+      .innerJoin(users, eq(taskAssignments.userId, users.id))
+      .innerJoin(projects, eq(projectTasks.projectId, projects.id))
+      .where(and(
+        eq(projectTasks.status, 'blocked'),
+        sql`${projectTasks.updatedAt} < ${blockedThreshold}`,
+        eq(users.role, 'student')
+      ));
+
+    const generatedAlerts: Alert[] = [];
+
+    for (const task of blockedTasks) {
+      // Check if we already have an unresolved alert for this task
+      const existingAlert = await db
+        .select()
+        .from(alerts)
+        .where(and(
+          eq(alerts.taskId, task.id),
+          eq(alerts.type, 'task_blocked'),
+          eq(alerts.isResolved, false)
+        ))
+        .limit(1);
+
+      if (existingAlert.length === 0) {
+        const hoursBlocked = Math.floor(
+          (new Date().getTime() - new Date(task.updatedAt).getTime()) / (1000 * 60 * 60)
+        );
+
+        const alert = await this.createAlert({
+          type: 'task_blocked',
+          severity: 'high',
+          title: `Task Blocked: ${task.title}`,
+          message: `Task "${task.title}" in project "${task.projectName}" has been blocked for ${hoursBlocked} hours. Student: ${task.studentName}.`,
+          userId: task.studentId,
+          projectId: task.projectId,
+          taskId: task.id,
+          data: {
+            hoursBlocked,
+            blockedSince: task.updatedAt,
+          },
+        });
+
+        generatedAlerts.push(alert);
+      }
+    }
+
+    return generatedAlerts;
   }
 }
 

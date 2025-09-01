@@ -3,7 +3,7 @@ import { registerRoutes } from "./routes";
 import { initializeWebSocket } from "./websocket";
 import { setupVite, serveStatic, log } from "./vite";
 import { loadEnvironment } from "./env";
-import { setupWeeklyDigest, setupOverdueTaskNotifications, setupProductivityAlerts, setupLabInsightsReport } from "./cron";
+import { setupWeeklyDigest, setupOverdueTaskNotifications, setupProductivityAlerts, setupLabInsightsReport, setupAlertGeneration } from "./cron";
 import { progressMonitor } from "./progress-monitor";
 
 // Load environment variables
@@ -54,6 +54,7 @@ app.use((req, res, next) => {
   setupOverdueTaskNotifications();
   setupProductivityAlerts();
   setupLabInsightsReport();
+  setupAlertGeneration();
 
   // Start real-time progress monitoring
   progressMonitor.start();
