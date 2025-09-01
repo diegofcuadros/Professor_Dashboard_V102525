@@ -304,8 +304,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(projects, eq(projectAssignments.projectId, projects.id))
       .where(and(
         eq(projectAssignments.userId, userId), 
-        eq(projectAssignments.isActive, true),
-        eq(projects.isActive, true)
+        eq(projectAssignments.isActive, true)
       ))
       .orderBy(desc(projectAssignments.assignedAt));
   }
@@ -1650,7 +1649,7 @@ export class DatabaseStorage implements IStorage {
         description: projects.description,
       })
       .from(projects)
-      .where(eq(projects.isActive, true));
+      .where(eq(projects.status, 'active'));
 
     const generatedAlerts: Alert[] = [];
 
