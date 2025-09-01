@@ -17,7 +17,9 @@
       "Bash(npm run dev:*)",
       "Bash(set NODE_ENV=development)",
       "Bash(npx tsx:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

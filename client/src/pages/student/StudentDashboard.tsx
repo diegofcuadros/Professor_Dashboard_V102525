@@ -7,6 +7,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import MetricCard from "@/components/dashboard/MetricCard";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import ScheduleSubmission from "@/components/schedule/ScheduleSubmission";
+import MyProjects from "./MyProjects";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Clock, Projector, Calendar, TrendingUp, Plus, BookOpen, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -317,6 +318,12 @@ export default function StudentDashboard() {
           {activeSection === 'schedule' && (
             <div className="p-6">
               <ScheduleSubmission />
+            </div>
+          )}
+
+          {activeSection === 'projects' && (
+            <div className="p-6">
+              <MyProjects />
             </div>
           )}
 
