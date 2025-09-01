@@ -12,11 +12,13 @@ import TeamTable from "@/components/dashboard/TeamTable";
 import CommunicationDashboard from "@/components/communication/CommunicationDashboard";
 import StudentDashboardViewer from "@/components/professor/StudentDashboardViewer";
 import TeamTasks from "./TeamTasks";
+import AlertDashboard from "@/components/admin/AlertDashboard";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Users, Projector, Clock, AlertTriangle, Bell, FolderOpen, Plus, Brain, Calendar, BarChart3, Settings, MessageSquare } from "lucide-react";
 
 const adminSidebarItems = [
   { id: 'overview', label: 'Lab Overview', icon: 'chart-line' },
+  { id: 'alerts', label: 'Alert Dashboard', icon: 'bell' },
   { id: 'team', label: 'Team Management', icon: 'users' },
   { id: 'team-tasks', label: 'Team Tasks', icon: 'tasks' },
   { id: 'student-dashboards', label: 'Student Dashboards', icon: 'users' },
@@ -209,6 +211,12 @@ export default function AdminDashboard() {
                 error={usersError}
                 data-testid="team-table"
               />
+            </div>
+          )}
+
+          {activeSection === 'alerts' && (
+            <div className="p-4 lg:p-6">
+              <AlertDashboard />
             </div>
           )}
 

@@ -5,6 +5,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { loadEnvironment } from "./env";
 import { setupWeeklyDigest, setupOverdueTaskNotifications, setupProductivityAlerts, setupLabInsightsReport, setupAlertGeneration } from "./cron";
 import { progressMonitor } from "./progress-monitor";
+import { alertService } from "./alertService";
 
 // Load environment variables
 loadEnvironment();
@@ -50,6 +51,9 @@ app.use((req, res, next) => {
   initializeWebSocket(server);
 
   // Start all notification cron jobs
+  // Initialize alert system
+  await alertService.initializeAlertSystem();
+
   setupWeeklyDigest();
   setupOverdueTaskNotifications();
   setupProductivityAlerts();
