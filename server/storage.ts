@@ -283,20 +283,20 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select({
         // Assignment fields
-        id: projectAssignments.id,
+        assignmentId: projectAssignments.id,
         userId: projectAssignments.userId,
         projectId: projectAssignments.projectId,
         assignedAt: projectAssignments.assignedAt,
         isActive: projectAssignments.isActive,
-        // Project fields  
+        // Project fields
+        id: projects.id,
         name: projects.name,
         description: projects.description,
         status: projects.status,
         startDate: projects.startDate,
         targetEndDate: projects.targetEndDate,
-        actualEndDate: projects.actualEndDate,
-        priority: projects.priority,
-        researchField: projects.researchField,
+        projectType: projects.projectType,
+        createdBy: projects.createdBy,
         createdAt: projects.createdAt,
         updatedAt: projects.updatedAt,
       })

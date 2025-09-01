@@ -7,6 +7,7 @@
  * to verify if assignment records are being created when professors assign projects to students.
  */
 
+import 'dotenv/config'; // Load .env file
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { db } from '../server/db.js';
