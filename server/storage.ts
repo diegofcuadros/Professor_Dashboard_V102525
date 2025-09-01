@@ -286,7 +286,7 @@ export class DatabaseStorage implements IStorage {
         assignmentId: projectAssignments.id,
         userId: projectAssignments.userId,
         projectId: projectAssignments.projectId,
-        assignedAt: projectAssignments.assignedAt,
+        assignedAt: projectAssignments.createdAt,
         isActive: projectAssignments.isActive,
         // Project fields
         id: projects.id,
@@ -306,7 +306,7 @@ export class DatabaseStorage implements IStorage {
         eq(projectAssignments.userId, userId), 
         eq(projectAssignments.isActive, true)
       ))
-      .orderBy(desc(projectAssignments.assignedAt));
+      .orderBy(desc(projectAssignments.createdAt));
   }
 
   async getProjectAssignments(projectId: string): Promise<ProjectAssignment[]> {
