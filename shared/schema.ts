@@ -173,6 +173,19 @@ export const projectTasks = pgTable("project_tasks", {
   createdBy: varchar("created_by").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  // New fields for Sprint A
+  status: varchar("status", { length: 20 }).default('pending'),
+  progressPct: integer("progress_pct").default(0),
+});
+
+// New: task activity feed
+export const taskActivity = pgTable("task_activity", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: uuid("task_id").references(() => projectTasks.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // 'status' | 'progress' | 'comment'
+  message: text("message"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const taskAssignments = pgTable("task_assignments", {
@@ -233,6 +246,7 @@ export type InsertTaskAssignment = typeof taskAssignments.$inferInsert;
 export type TaskAssignment = typeof taskAssignments.$inferSelect;
 export type InsertTaskCompletion = typeof taskCompletions.$inferInsert;
 export type TaskCompletion = typeof taskCompletions.$inferSelect;
+export type InsertTaskActivity = typeof taskActivity.$inferInsert;
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,

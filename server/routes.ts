@@ -916,6 +916,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task status/progress/comments/activity APIs
+  app.patch('/api/tasks/:taskId/status', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const { status, note } = req.body;
+      const task = await storage.updateTaskStatus(req.params.taskId, status, currentUser.id, note);
+      if (!task) return res.status(404).json({ message: 'Task not found' });
+      res.json(task);
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      res.status(500).json({ message: 'Failed to update task status' });
+    }
+  });
+
+  app.patch('/api/tasks/:taskId/progress', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const { progressPct, note } = req.body;
+      const task = await storage.updateTaskProgress(req.params.taskId, Number(progressPct), currentUser.id, note);
+      if (!task) return res.status(404).json({ message: 'Task not found' });
+      res.json(task);
+    } catch (error) {
+      console.error('Error updating task progress:', error);
+      res.status(500).json({ message: 'Failed to update task progress' });
+    }
+  });
+
+  app.post('/api/tasks/:taskId/comment', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const { message } = req.body;
+      if (!message) return res.status(400).json({ message: 'message is required' });
+      await storage.addTaskComment(req.params.taskId, currentUser.id, message);
+      res.status(201).json({ ok: true });
+    } catch (error) {
+      console.error('Error adding task comment:', error);
+      res.status(500).json({ message: 'Failed to add task comment' });
+    }
+  });
+
+  app.get('/api/tasks/:taskId/activity', isAuthenticated, async (req, res) => {
+    try {
+      const items = await storage.getTaskActivity(req.params.taskId);
+      res.json(items);
+    } catch (error) {
+      console.error('Error fetching task activity:', error);
+      res.status(500).json({ message: 'Failed to fetch task activity' });
+    }
+  });
+
   // Delete a task (professors/admin only)
   app.delete('/api/tasks/:taskId', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {

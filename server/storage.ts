@@ -36,6 +36,8 @@ import {
   type InsertTimeEntry,
   type TimeLog,
   type InsertTimeLog,
+  taskActivity,
+  type InsertTaskActivity,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { db } from "./db";
@@ -125,6 +127,12 @@ export interface IStorage {
   completeTask(completion: InsertTaskCompletion): Promise<TaskCompletion>;
   getTaskCompletions(taskId: string): Promise<TaskCompletion[]>;
   isTaskCompletedByUser(taskId: string, userId: string): Promise<boolean>;
+  
+  // Collaboration tracking
+  updateTaskStatus(taskId: string, status: string, userId: string, note?: string): Promise<ProjectTask | undefined>;
+  updateTaskProgress(taskId: string, progressPct: number, userId: string, note?: string): Promise<ProjectTask | undefined>;
+  addTaskComment(taskId: string, userId: string, message: string): Promise<void>;
+  getTaskActivity(taskId: string): Promise<InsertTaskActivity[]>;
   
   // Additional methods for notification service
   getTask(id: string): Promise<ProjectTask | undefined>;
@@ -739,6 +747,46 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     return !!completion;
+  }
+
+  // Collaboration tracking
+  async updateTaskStatus(taskId: string, status: string, userId: string, note?: string): Promise<ProjectTask | undefined> {
+    const [task] = await db
+      .update(projectTasks)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(projectTasks.id, taskId))
+      .returning();
+
+    if (task) {
+      await db.insert(taskActivity).values({ taskId, userId, type: 'status', message: note || `Status changed to ${status}` });
+    }
+    return task as unknown as ProjectTask | undefined;
+  }
+
+  async updateTaskProgress(taskId: string, progressPct: number, userId: string, note?: string): Promise<ProjectTask | undefined> {
+    const clamped = Math.max(0, Math.min(100, progressPct));
+    const [task] = await db
+      .update(projectTasks)
+      .set({ progressPct: clamped, updatedAt: new Date(), status: clamped >= 100 ? 'completed' : undefined as any })
+      .where(eq(projectTasks.id, taskId))
+      .returning();
+
+    if (task) {
+      await db.insert(taskActivity).values({ taskId, userId, type: 'progress', message: note || `Progress updated to ${clamped}%` });
+    }
+    return task as unknown as ProjectTask | undefined;
+  }
+
+  async addTaskComment(taskId: string, userId: string, message: string): Promise<void> {
+    await db.insert(taskActivity).values({ taskId, userId, type: 'comment', message });
+  }
+
+  async getTaskActivity(taskId: string): Promise<InsertTaskActivity[]> {
+    return await db
+      .select()
+      .from(taskActivity)
+      .where(eq(taskActivity.taskId, taskId))
+      .orderBy(desc(taskActivity.createdAt));
   }
 
   // Additional methods for notification service
