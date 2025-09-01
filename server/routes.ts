@@ -235,7 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Assignment Routes
   app.post('/api/assignments', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
-
+      const currentUser = req.user!;
       const validatedData = insertProjectAssignmentSchema.parse(req.body);
       const assignment = await storage.createProjectAssignment(validatedData);
 
@@ -260,25 +260,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating assignment:", error);
       res.status(500).json({ message: "Failed to create assignment" });
-    }
-  });
-
-  app.get('/api/assignments/user/:userId', isAuthenticated, async (req, res) => {
-    try {
-      const currentUser = req.user!;
-
-      // Users can only see their own assignments unless they're admin/professor
-      if (req.params.userId !== currentUser.id && 
-          currentUser.role !== 'admin' && 
-          currentUser.role !== 'professor') {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      const assignments = await storage.getUserAssignments(req.params.userId);
-      res.json(assignments);
-    } catch (error) {
-      console.error("Error fetching assignments:", error);
-      res.status(500).json({ message: "Failed to fetch assignments" });
     }
   });
 
