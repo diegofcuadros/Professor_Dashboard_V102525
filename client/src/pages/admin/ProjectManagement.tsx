@@ -482,13 +482,15 @@ export default function ProjectManagement() {
                       >
                         <UserPlus className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        data-testid={`button-edit-${project.id}`}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <Link href={`/admin/projects/${project.id}`}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          data-testid={`button-edit-${project.id}`}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </Link>
                     </div>
                   </TableCell>
                 </TableRow>
