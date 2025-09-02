@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { apiRequestJson } from "@/lib/queryClient";
 import { 
   Users, 
   Eye, 
@@ -66,9 +70,13 @@ interface StudentDashboardData {
 
 export default function StudentDashboardViewer() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [showMessage, setShowMessage] = useState(false);
+  const [messageSubject, setMessageSubject] = useState("");
+  const [messageBody, setMessageBody] = useState("");
 
   // Fetch all students
   const { data: students, isLoading: studentsLoading } = useQuery<Student[]>({
@@ -82,6 +90,53 @@ export default function StudentDashboardViewer() {
     queryKey: [`/api/users/${selectedStudent?.id}/dashboard-metrics`],
     retry: false,
     enabled: !!selectedStudent?.id && (user?.role === 'admin' || user?.role === 'professor'),
+  });
+
+  // Phase 1: Professor overview for selected student
+  const { data: studentOverview } = useQuery<any>({
+    queryKey: selectedStudent?.id ? [`/api/students/${selectedStudent.id}/overview`] : ["/noop"],
+    retry: false,
+    enabled: !!selectedStudent?.id && (user?.role === 'admin' || user?.role === 'professor'),
+  });
+
+  // Phase 1: Professor schedule view for selected student and current week
+  const getCurrentWeek = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMonday = (day + 6) % 7; // 0 for Monday
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+    return format(monday, 'yyyy-MM-dd');
+  };
+
+  const [selectedWeek] = useState<string>(getCurrentWeek());
+
+  const { data: studentSchedules, isLoading: schedulesLoading } = useQuery<any[]>({
+    queryKey: selectedStudent?.id ? [`/api/students/${selectedStudent.id}/schedules?weekStart=${selectedWeek}`] : ["/noop"],
+    retry: false,
+    enabled: !!selectedStudent?.id && !!selectedWeek && (user?.role === 'admin' || user?.role === 'professor'),
+  });
+
+  // Helpers for schedule comments
+  const fetchComments = async (scheduleId: string) => apiRequestJson<any[]>("GET", `/api/schedules/${scheduleId}/comments`);
+  const addComment = useMutation({
+    mutationFn: async ({ scheduleId, comment }: { scheduleId: string; comment: string }) =>
+      apiRequestJson<any>("POST", `/api/schedules/${scheduleId}/comment`, { comment }),
+    onSuccess: (_d, v) => queryClient.invalidateQueries({ queryKey: [`/api/schedules/${v.scheduleId}/comments`] }),
+  });
+
+  const sendMessage = useMutation({
+    mutationFn: async () => apiRequestJson("POST", "/api/messages/send", {
+      recipientId: selectedStudent?.id,
+      subject: messageSubject.trim(),
+      message: messageBody.trim(),
+    }),
+    onSuccess: () => {
+      setShowMessage(false);
+      setMessageSubject("");
+      setMessageBody("");
+    },
   });
 
   // Filter students
@@ -214,12 +269,12 @@ export default function StudentDashboardViewer() {
                         <User className="h-6 w-6 text-primary" />
                       </div>
                       <div>
-                        <CardTitle>{selectedStudent.firstName} {selectedStudent.lastName}</CardTitle>
-                        <p className="text-muted-foreground">{selectedStudent.email}</p>
+                        <CardTitle>{studentOverview?.firstName || selectedStudent.firstName} {studentOverview?.lastName || selectedStudent.lastName}</CardTitle>
+                        <p className="text-muted-foreground">{studentOverview?.email || selectedStudent.email}</p>
                       </div>
                     </div>
-                    <Badge variant={selectedStudent.isActive ? "default" : "secondary"}>
-                      {selectedStudent.isActive ? "Active" : "Inactive"}
+                    <Badge variant={(studentOverview?.isActive ?? selectedStudent.isActive) ? "default" : "secondary"}>
+                      {(studentOverview?.isActive ?? selectedStudent.isActive) ? "Active" : "Inactive"}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -227,15 +282,15 @@ export default function StudentDashboardViewer() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground">Department:</span>
-                      <p className="font-medium">{selectedStudent.department || 'Not specified'}</p>
+                      <p className="font-medium">{studentOverview?.department || selectedStudent.department || 'Not specified'}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Year Level:</span>
-                      <p className="font-medium">{selectedStudent.yearLevel || 'Not specified'}</p>
+                      <p className="font-medium">{studentOverview?.yearLevel || selectedStudent.yearLevel || 'Not specified'}</p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Specialization:</span>
-                      <p className="font-medium">{selectedStudent.specialization || 'Not specified'}</p>
+                      <p className="font-medium">{studentOverview?.specialization || selectedStudent.specialization || 'Not specified'}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -466,11 +521,36 @@ export default function StudentDashboardViewer() {
                       <CardTitle>Schedule Information</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-center py-6 text-muted-foreground">
-                        <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                        <p>Schedule details will be displayed here</p>
-                        <p className="text-sm">Integration with schedule data in progress</p>
-                      </div>
+                      {schedulesLoading ? (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p>Loading schedule…</p>
+                        </div>
+                      ) : (studentSchedules && studentSchedules.length > 0) ? (
+                        <div className="space-y-3">
+                          {studentSchedules.map((s: any) => (
+                            <div key={s.id} className="p-3 border rounded">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium">Week starting {new Date(s.weekStartDate).toLocaleDateString()}</div>
+                                  <div className="text-sm text-muted-foreground">Status: {s.status}{s.approved ? ' (Approved)' : ''}</div>
+                                </div>
+                                <div className="text-sm">Total scheduled: {s.totalScheduledHours ?? 0}h</div>
+                              </div>
+                              <CommentsSection
+                                scheduleId={s.id}
+                                fetchComments={fetchComments}
+                                onAddComment={(text) => addComment.mutate({ scheduleId: s.id, comment: text })}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p>No schedule found for the selected week</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -544,7 +624,7 @@ export default function StudentDashboardViewer() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => setShowMessage(true)}>
                       <MessageSquare className="h-4 w-4 mr-2" />
                       Send Message
                     </Button>
@@ -559,6 +639,24 @@ export default function StudentDashboardViewer() {
                   </div>
                 </CardContent>
               </Card>
+
+              <Dialog open={showMessage} onOpenChange={setShowMessage}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Send message to {selectedStudent.firstName} {selectedStudent.lastName}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <Input placeholder="Subject" value={messageSubject} onChange={(e) => setMessageSubject(e.target.value)} />
+                    <Textarea placeholder="Write your message" value={messageBody} onChange={(e) => setMessageBody(e.target.value)} />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowMessage(false)}>Cancel</Button>
+                    <Button onClick={() => sendMessage.mutate()} disabled={!messageSubject.trim() || !messageBody.trim() || sendMessage.isPending}>
+                      {sendMessage.isPending ? 'Sending…' : 'Send'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           ) : (
             <Card>
@@ -572,6 +670,57 @@ export default function StudentDashboardViewer() {
             </Card>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Lightweight comments section (internal component)
+function CommentsSection({
+  scheduleId,
+  fetchComments,
+  onAddComment,
+}: {
+  scheduleId: string;
+  fetchComments: (scheduleId: string) => Promise<any[]>;
+  onAddComment: (text: string) => void;
+}) {
+  const [comment, setComment] = useState("");
+  const { data: comments } = useQuery<any[]>({
+    queryKey: [`/api/schedules/${scheduleId}/comments`],
+    queryFn: () => fetchComments(scheduleId),
+    retry: false,
+  });
+
+  return (
+    <div className="mt-3 border-t pt-3 space-y-2">
+      <div className="text-sm font-medium">Comments</div>
+      <div className="space-y-2">
+        {(comments || []).map((c: any) => (
+          <div key={c.id} className="text-sm text-muted-foreground">
+            <span className="font-medium">{c.authorId?.slice(0, 6) || 'user'}:</span> {c.body}
+          </div>
+        ))}
+        {(!comments || comments.length === 0) && (
+          <div className="text-xs text-muted-foreground">No comments yet.</div>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Input
+          placeholder="Add a comment"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+        />
+        <Button
+          size="sm"
+          onClick={() => {
+            if (!comment.trim()) return;
+            onAddComment(comment.trim());
+            setComment("");
+          }}
+        >
+          Add
+        </Button>
       </div>
     </div>
   );

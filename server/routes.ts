@@ -432,6 +432,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Student Data API Endpoints
   
+  // Phase 1: Professor access to specific student's overview
+  app.get('/api/students/:id/overview', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) return res.status(404).json({ message: 'Student not found' });
+      const { passwordHash, ...safe } = user as any;
+      res.json(safe);
+    } catch (error) {
+      console.error('Error fetching student overview:', error);
+      res.status(500).json({ message: 'Failed to fetch student overview' });
+    }
+  });
+
+  // Phase 1: Professor access to a student's schedules for a given week
+  app.get('/api/students/:id/schedules', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const weekStart = req.query.weekStart as string | undefined;
+      const schedules = await storage.getUserWorkSchedules(id, weekStart);
+      res.json(schedules);
+    } catch (error) {
+      console.error('Error fetching student schedules:', error);
+      res.status(500).json({ message: 'Failed to fetch student schedules' });
+    }
+  });
+
+  // Phase 1: Professor access to all tasks assigned to a specific student
+  app.get('/api/students/:id/tasks', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const tasks = await storage.getUserTasks(id);
+      res.json(tasks);
+    } catch (error) {
+      console.error('Error fetching student tasks:', error);
+      res.status(500).json({ message: 'Failed to fetch student tasks' });
+    }
+  });
+
+  // Phase 2: Schedule feedback comments
+  app.get('/api/schedules/:scheduleId/comments', isAuthenticated, requireRole(['admin','professor']), async (req, res) => {
+    try {
+      const comments = await storage.getScheduleComments(req.params.scheduleId);
+      res.json(comments);
+    } catch (error) {
+      console.error('Error fetching schedule comments:', error);
+      res.status(500).json({ message: 'Failed to fetch schedule comments' });
+    }
+  });
+
+  app.post('/api/schedules/:scheduleId/comment', isAuthenticated, requireRole(['admin','professor']), async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const { scheduleId } = req.params;
+      const { comment } = req.body || {};
+      if (!comment || typeof comment !== 'string' || !comment.trim()) {
+        return res.status(400).json({ message: 'Comment text is required' });
+      }
+      const created = await storage.addScheduleComment(scheduleId, currentUser.id, comment.trim());
+      res.status(201).json(created);
+    } catch (error) {
+      console.error('Error creating schedule comment:', error);
+      res.status(500).json({ message: 'Failed to create schedule comment' });
+    }
+  });
+
   // Get user assignments (for student projects)
   app.get('/api/assignments/user/:userId', isAuthenticated, async (req, res) => {
     try {

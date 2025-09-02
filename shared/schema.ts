@@ -181,6 +181,15 @@ export const notifications = pgTable("notifications", {
   emailSent: boolean("email_sent").default(false),
 });
 
+// New: schedule comments for professor feedback on weekly schedules
+export const scheduleComments = pgTable("schedule_comments", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  scheduleId: uuid("schedule_id").references(() => workSchedules.id).notNull(),
+  authorId: varchar("author_id").references(() => users.id).notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const projectTasks = pgTable("project_tasks", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   projectId: uuid("project_id").references(() => projects.id).notNull(),

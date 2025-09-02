@@ -48,6 +48,7 @@ import {
   type InsertAlert,
   type AlertConfiguration,
   type InsertAlertConfiguration,
+  scheduleComments,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { db } from "./db";
@@ -110,6 +111,9 @@ export interface IStorage {
   getScheduleBlocks(scheduleId: string): Promise<ScheduleBlock[]>;
   updateScheduleBlock(id: string, updates: Partial<InsertScheduleBlock>): Promise<ScheduleBlock | undefined>;
   deleteScheduleBlock(id: string): Promise<boolean>;
+  // Phase 2: Schedule comments
+  getScheduleComments(scheduleId: string): Promise<Array<{ id: string; scheduleId: string; authorId: string; body: string; createdAt: Date }>>;
+  addScheduleComment(scheduleId: string, authorId: string, body: string): Promise<{ id: string; scheduleId: string; authorId: string; body: string; createdAt: Date }>;
   
   // Schedule validation operations
   validateWeeklySchedule(userId: string, weekStart: string): Promise<{ isValid: boolean; totalHours: number; violations: string[] }>;
@@ -628,6 +632,23 @@ export class DatabaseStorage implements IStorage {
       totalHours: parseFloat(totalHours.toFixed(1)),
       violations
     };
+  }
+
+  // Phase 2: Schedule comments
+  async getScheduleComments(scheduleId: string): Promise<Array<{ id: string; scheduleId: string; authorId: string; body: string; createdAt: Date }>> {
+    return await db
+      .select()
+      .from(scheduleComments)
+      .where(eq(scheduleComments.scheduleId, scheduleId))
+      .orderBy(desc(scheduleComments.createdAt));
+  }
+
+  async addScheduleComment(scheduleId: string, authorId: string, body: string): Promise<{ id: string; scheduleId: string; authorId: string; body: string; createdAt: Date }> {
+    const [created] = await db
+      .insert(scheduleComments)
+      .values({ scheduleId, authorId, body })
+      .returning();
+    return created as any;
   }
   
   private calculateBlockDuration(startTime: string, endTime: string): number {
