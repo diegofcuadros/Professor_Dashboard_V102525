@@ -16,6 +16,7 @@ import SystemSettings from "@/pages/admin/SystemSettings";
 import IntegrationsPage from "@/pages/admin/IntegrationsPage";
 import MyProjects from "@/pages/student/MyProjects";
 import MyTasks from "@/pages/student/MyTasks";
+import StudentProjectDetails from "@/pages/student/StudentProjectDetails";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -37,6 +38,7 @@ function Router() {
           <Route path="/admin/integrations" component={IntegrationsPage} />
           <Route path="/projects" component={MyProjects} />
           <Route path="/student/projects" component={MyProjects} />
+          <Route path="/student/projects/:projectId" component={StudentProjectDetails} />
           <Route path="/postdoc/projects" component={MyProjects} />
           <Route path="/tasks" component={MyTasks} />
           <Route path="/student/tasks" component={MyTasks} />

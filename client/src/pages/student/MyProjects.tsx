@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -206,23 +207,27 @@ export default function MyProjects() {
                 </div>
                 
                 <div className="flex space-x-2 pt-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1"
-                    data-testid={`button-view-project-${project.id}`}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    View Details
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    className="flex-1"
-                    data-testid={`button-log-progress-${project.id}`}
-                  >
-                    <PlayCircle className="h-4 w-4 mr-2" />
-                    Log Progress
-                  </Button>
+                  <Link href={`/student/projects/${project.id}`}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      data-testid={`button-view-project-${project.id}`}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
+                  </Link>
+                  <Link href={`/student/projects/${project.id}#progress`}>
+                    <Button 
+                      size="sm" 
+                      className="flex-1"
+                      data-testid={`button-log-progress-${project.id}`}
+                    >
+                      <PlayCircle className="h-4 w-4 mr-2" />
+                      Log Progress
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
