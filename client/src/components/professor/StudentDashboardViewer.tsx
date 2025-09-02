@@ -118,6 +118,21 @@ export default function StudentDashboardViewer() {
     enabled: !!selectedStudent?.id && !!selectedWeek && (user?.role === 'admin' || user?.role === 'professor'),
   });
 
+  // Phase 1: Fetch tasks for selected student
+  const { data: studentTasks, isLoading: tasksLoading } = useQuery<any[]>({
+    queryKey: selectedStudent?.id ? [`/api/students/${selectedStudent.id}/tasks`] : ["/noop"],
+    retry: false,
+    enabled: !!selectedStudent?.id && (user?.role === 'admin' || user?.role === 'professor'),
+  });
+
+  // Fetch schedule blocks for the first schedule
+  const currentScheduleId = studentSchedules?.[0]?.id;
+  const { data: scheduleBlocks } = useQuery<any[]>({
+    queryKey: currentScheduleId ? [`/api/work-schedules/${currentScheduleId}/blocks`] : ["/noop"],
+    retry: false,
+    enabled: !!currentScheduleId,
+  });
+
   // Helpers for schedule comments
   const fetchComments = async (scheduleId: string) => apiRequestJson<any[]>("GET", `/api/schedules/${scheduleId}/comments`);
   const addComment = useMutation({
@@ -310,8 +325,46 @@ export default function StudentDashboardViewer() {
                     <Card>
                       <CardContent className="p-6 text-center">Loading metrics...</CardContent>
                     </Card>
-                  ) : dashboardData ? (
+                  ) : (dashboardData || studentOverview) ? (
                     <>
+                      {studentOverview && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Student Information</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Name</p>
+                                <p className="font-medium">{studentOverview.firstName} {studentOverview.lastName}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Email</p>
+                                <p className="font-medium">{studentOverview.email}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Department</p>
+                                <p className="font-medium">{studentOverview.department || 'Not specified'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Year Level</p>
+                                <p className="font-medium">{studentOverview.yearLevel || 'Not specified'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Specialization</p>
+                                <p className="font-medium">{studentOverview.specialization || 'Not specified'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Status</p>
+                                <Badge variant={studentOverview.isActive ? "default" : "secondary"}>
+                                  {studentOverview.isActive ? 'Active' : 'Inactive'}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
                       {/* Key Metrics */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <Card>
@@ -460,37 +513,51 @@ export default function StudentDashboardViewer() {
                       <CardTitle>Recent Tasks & Activity</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {dashboardData?.recentActivity?.recentTasks?.length ? (
+                      {tasksLoading ? (
+                        <div className="text-center py-6 text-muted-foreground">Loading tasks…</div>
+                      ) : (studentTasks && studentTasks.length > 0) ? (
                         <div className="space-y-3">
-                          <h4 className="font-medium">Recent Tasks</h4>
-                          {dashboardData.recentActivity.recentTasks.map((task: any, index: number) => (
-                            <div key={index} className="flex items-center justify-between p-3 border rounded">
-                              <div className="flex-1">
-                                <span className="font-medium">{task.title || `Task ${index + 1}`}</span>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge variant={
-                                    task.status === 'completed' ? 'default' :
-                                    task.status === 'in-progress' ? 'secondary' : 'outline'
-                                  } size="sm">
-                                    {task.status || 'pending'}
+                          {studentTasks.map((task: any) => (
+                            <div key={task.id} className="p-3 border rounded">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <span className="font-medium">{task.title}</span>
+                                  {task.projectName && (
+                                    <div className="text-sm text-muted-foreground">Project: {task.projectName}</div>
+                                  )}
+                                  {task.dueDate && (
+                                    <div className="text-sm text-muted-foreground">Due: {new Date(task.dueDate).toLocaleDateString()}</div>
+                                  )}
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  <Badge variant={task.status === 'completed' ? 'default' : task.status === 'in_progress' ? 'secondary' : 'outline'}>
+                                    {task.status}
                                   </Badge>
                                   {task.priority && (
-                                    <Badge variant="outline" size="sm">
+                                    <Badge variant={task.priority === 'high' ? 'destructive' : task.priority === 'medium' ? 'default' : 'secondary'} className="text-xs">
                                       {task.priority}
                                     </Badge>
                                   )}
                                 </div>
                               </div>
-                              <span className="text-sm text-muted-foreground">
-                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
-                              </span>
+                              {typeof task.progressPercentage === 'number' && (
+                                <div className="mt-2">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span>Progress</span>
+                                    <span>{task.progressPercentage}%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                    <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${task.progressPercentage}%` }} />
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
                       ) : (
                         <div className="text-center py-6 text-muted-foreground">
                           <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                          <p>No recent tasks found</p>
+                          <p>No tasks assigned</p>
                         </div>
                       )}
 
@@ -537,6 +604,25 @@ export default function StudentDashboardViewer() {
                                 </div>
                                 <div className="text-sm">Total scheduled: {s.totalScheduledHours ?? 0}h</div>
                               </div>
+                              {s.id === currentScheduleId && scheduleBlocks && scheduleBlocks.length > 0 && (
+                                <div className="mt-3 space-y-2">
+                                  <div className="text-sm font-medium">Schedule Details</div>
+                                  <div className="grid grid-cols-1 gap-2">
+                                    {scheduleBlocks.map((block: any) => (
+                                      <div key={block.id} className="p-2 bg-muted rounded text-sm">
+                                        <div className="flex justify-between items-start">
+                                          <div>
+                                            <span className="font-medium">{block.dayOfWeek}</span>
+                                            <span className="ml-2">{block.startTime} - {block.endTime}</span>
+                                          </div>
+                                          <Badge variant="outline" className="text-xs">{block.location || 'No location'}</Badge>
+                                        </div>
+                                        <div className="mt-1 text-muted-foreground">{block.plannedActivity || 'No activity specified'}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                               <CommentsSection
                                 scheduleId={s.id}
                                 fetchComments={fetchComments}
