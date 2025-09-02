@@ -11,12 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ProjectDetails() {
   const [match, params] = useRoute("/admin/projects/:projectId");
   const projectId = match ? (params as any).projectId : "";
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: project } = useQuery({
     queryKey: [`/api/projects/${projectId}`],
@@ -42,6 +44,12 @@ export default function ProjectDetails() {
   const { data: projectTasks } = useQuery({
     queryKey: [`/api/projects/${projectId}/tasks`],
     enabled: !!projectId,
+  });
+
+  // Build a quick lookup of assigned students for this project
+  const assignedStudents = (assignments || []).map((a: any) => {
+    const u = (allUsers || []).find((x: any) => x.id === a.userId);
+    return u ? { id: u.id, label: `${u.firstName || ''} ${u.lastName || ''} (${u.email})` } : { id: a.userId, label: a.userId };
   });
 
   const [milestoneTitle, setMilestoneTitle] = useState("");
@@ -393,7 +401,8 @@ export default function ProjectDetails() {
                     <TableHead>Due</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="w-40">Actions</TableHead>
+                    <TableHead>Assign To</TableHead>
+                    <TableHead className="w-52">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -429,6 +438,9 @@ export default function ProjectDetails() {
                         )}
                       </TableCell>
                       <TableCell>{t.status || 'pending'}</TableCell>
+                      <TableCell>
+                        <AssignTaskCell taskId={t.id} students={assignedStudents} onAssigned={() => queryClient.invalidateQueries({ queryKey: ["/api/projects/", projectId, "/tasks"].filter(Boolean).join("") })} />
+                      </TableCell>
                       <TableCell className="space-x-2">
                         {editTaskId === t.id ? (
                           <>
@@ -450,6 +462,30 @@ export default function ProjectDetails() {
           </Tabs>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// Inline component for assigning tasks to students
+function AssignTaskCell({ taskId, students, onAssigned }: { taskId: string; students: { id: string; label: string }[]; onAssigned: () => void }) {
+  const [assignee, setAssignee] = useState<string>("");
+  const assignMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", `/api/tasks/${taskId}/assign`, { userId: assignee }),
+    onSuccess: () => {
+      onAssigned();
+    },
+  });
+  return (
+    <div className="flex items-center gap-2">
+      <Select value={assignee} onValueChange={setAssignee}>
+        <SelectTrigger className="h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+        <SelectContent>
+          {students.map((s) => (
+            <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button size="sm" onClick={() => assignee && assignMutation.mutate()} disabled={!assignee || assignMutation.isPending}>Assign</Button>
     </div>
   );
 }

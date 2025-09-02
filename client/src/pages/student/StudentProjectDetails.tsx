@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -9,12 +10,27 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import TaskList from "@/components/tasks/TaskList";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function StudentProjectDetails() {
   const [match, params] = useRoute("/student/projects/:projectId");
   const projectId = match ? (params as any).projectId : "";
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // Control active tab, allow deep-linking to #progress
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    return window.location.hash?.replace('#', '') || 'overview';
+  });
+  useEffect(() => {
+    const handler = () => {
+      const hash = window.location.hash?.replace('#', '') || 'overview';
+      setActiveTab(hash);
+    };
+    window.addEventListener('hashchange', handler);
+    return () => window.removeEventListener('hashchange', handler);
+  }, []);
 
   const { data: project } = useQuery({
     queryKey: [`/api/projects/${projectId}`],
@@ -27,13 +43,8 @@ export default function StudentProjectDetails() {
   });
 
   const { data: assignments } = useQuery({
-    queryKey: ["/api/assignments/me"],
-    queryFn: async () => {
-      // reuse user endpoint: will be filtered client-side for this project
-      const res = await fetch(`/api/assignments/user/${(window as any).CURRENT_USER_ID}`);
-      return res.json();
-    },
-    enabled: !!projectId,
+    queryKey: [`/api/assignments/user/${user?.id}`],
+    enabled: !!user?.id,
   });
 
   // Progress logging
@@ -58,7 +69,9 @@ export default function StudentProjectDetails() {
       toast({ title: "Progress logged" });
       setProgressNotes("");
       setProgressPct(0);
-      queryClient.invalidateQueries({ queryKey: ["/api/progress/user/"] });
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/progress/user/${user.id}`] });
+      }
     },
   });
 
@@ -69,7 +82,7 @@ export default function StudentProjectDetails() {
           <CardTitle>{project?.name || "Project"}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="overview">
+          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); window.location.hash = v; }}>
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="milestones">Milestones</TabsTrigger>
