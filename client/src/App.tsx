@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import ProjectManagement from "@/pages/admin/ProjectManagement";
+import ProjectDetails from "@/pages/admin/ProjectDetails";
 import AIAnalytics from "@/pages/admin/AIAnalytics";
 import ScheduleManagement from "@/pages/admin/ScheduleManagement";
 import ReportsManagement from "@/pages/admin/ReportsManagement";
@@ -28,6 +29,7 @@ function Router() {
           <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/admin/projects" component={ProjectManagement} />
+          <Route path="/admin/projects/:projectId" component={ProjectDetails} />
           <Route path="/admin/ai-analytics" component={AIAnalytics} />
           <Route path="/admin/schedules" component={ScheduleManagement} />
           <Route path="/admin/reports" component={ReportsManagement} />

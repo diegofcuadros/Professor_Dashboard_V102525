@@ -49,11 +49,29 @@ export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  // Execution-driving fields
+  objective: text("objective"),
+  successCriteria: text("success_criteria"),
+  deliverables: jsonb("deliverables"), // [{title, dueDate, ownerId, status}]
+  communication: jsonb("communication"), // {supervisorId, studentIds, reviewerIds, cadence, notes}
   startDate: date("start_date"),
   targetEndDate: date("target_end_date"),
   status: varchar("status").notNull().default('active'), // 'active', 'completed', 'paused'
   projectType: varchar("project_type", { length: 50 }),
   createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Milestones to structure timelines
+export const projectMilestones = pgTable("project_milestones", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: uuid("project_id").references(() => projects.id).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  dueDate: date("due_date"),
+  status: varchar("status", { length: 30 }).default('planned'), // 'planned','in_progress','completed','blocked'
+  orderIndex: integer("order_index").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -179,6 +197,14 @@ export const projectTasks = pgTable("project_tasks", {
   // New fields for Sprint A
   status: varchar("status", { length: 20 }).default('pending'),
   progressPct: integer("progress_pct").default(0),
+  // Extensions for execution control
+  checklist: jsonb("checklist"), // [{id,text,done,assigneeId,dueDate}]
+  dependencies: jsonb("dependencies"), // [taskId]
+  acceptanceCriteria: text("acceptance_criteria"),
+  reviewerId: varchar("reviewer_id").references(() => users.id),
+  labels: jsonb("labels"), // ['experiment','analysis']
+  reminderAt: timestamp("reminder_at"),
+  blockedReason: text("blocked_reason"),
 });
 
 // New: task activity feed
@@ -272,6 +298,8 @@ export type LoginRequest = {
 };
 export type InsertProject = typeof projects.$inferInsert;
 export type Project = typeof projects.$inferSelect;
+export type InsertProjectMilestone = typeof projectMilestones.$inferInsert;
+export type ProjectMilestone = typeof projectMilestones.$inferSelect;
 export type InsertProjectAssignment = typeof projectAssignments.$inferInsert;
 export type ProjectAssignment = typeof projectAssignments.$inferSelect;
 export type InsertProgressUpdate = typeof progressUpdates.$inferInsert;
@@ -305,6 +333,12 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   updatedAt: true,
 });
 
+export const insertProjectMilestoneSchema = createInsertSchema(projectMilestones).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertProjectAssignmentSchema = createInsertSchema(projectAssignments).omit({
   id: true,
   createdAt: true,
@@ -324,6 +358,28 @@ export const insertProjectTaskSchema = createInsertSchema(projectTasks).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+});
+
+// Task extensions: checklist and review actions
+export const updateTaskChecklistSchema = z.object({
+  checklist: z.array(
+    z.object({
+      id: z.string(),
+      text: z.string(),
+      done: z.boolean(),
+      assigneeId: z.string().optional(),
+      dueDate: z.string().optional(),
+    })
+  ),
+});
+
+export const taskReviewActionSchema = z.object({
+  action: z.enum(['submit', 'approve', 'reject']),
+  note: z.string().optional(),
+});
+
+export const setTaskReminderSchema = z.object({
+  reminderAt: z.string(), // ISO date string
 });
 
 // Sprint A: Task status/progress validation schemas

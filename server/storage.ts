@@ -11,6 +11,7 @@ import {
   scheduleBlocks,
   timeEntries,
   timeLogs,
+  projectMilestones,
   type User,
   type InsertUser,
   type CreateUserInput,
@@ -36,6 +37,8 @@ import {
   type InsertTimeEntry,
   type TimeLog,
   type InsertTimeLog,
+  type InsertProjectMilestone,
+  type ProjectMilestone,
   taskActivity,
   type InsertTaskActivity,
   type TaskActivity,
@@ -119,6 +122,12 @@ export interface IStorage {
   getProductivityReports(dateRange: string): Promise<any[]>;
   getProjectReports(dateRange: string): Promise<any[]>;
 
+  // Milestones
+  createMilestone(milestone: InsertProjectMilestone): Promise<ProjectMilestone>;
+  getProjectMilestones(projectId: string): Promise<ProjectMilestone[]>;
+  updateMilestone(id: string, updates: Partial<InsertProjectMilestone>): Promise<ProjectMilestone | undefined>;
+  deleteMilestone(id: string): Promise<boolean>;
+
   // Task operations
   createProjectTask(task: InsertProjectTask): Promise<ProjectTask>;
   getProjectTasks(projectId: string): Promise<ProjectTask[]>;
@@ -140,6 +149,9 @@ export interface IStorage {
   updateTaskProgress(taskId: string, progressPct: number, userId: string, note?: string): Promise<ProjectTask | undefined>;
   addTaskComment(taskId: string, userId: string, message: string): Promise<void>;
   getTaskActivity(taskId: string): Promise<TaskActivity[]>;
+  updateTaskChecklist(taskId: string, checklist: any[], userId: string): Promise<ProjectTask | undefined>;
+  setTaskReminder(taskId: string, reminderAt: Date, userId: string): Promise<ProjectTask | undefined>;
+  reviewTask(taskId: string, action: 'submit' | 'approve' | 'reject', userId: string, note?: string): Promise<ProjectTask | undefined>;
   
   // Additional methods for notification service
   getTask(id: string): Promise<ProjectTask | undefined>;
@@ -270,6 +282,34 @@ export class DatabaseStorage implements IStorage {
       .where(eq(projects.id, id))
       .returning();
     return project;
+  }
+
+  // Milestone operations
+  async createMilestone(milestone: InsertProjectMilestone): Promise<ProjectMilestone> {
+    const [m] = await db.insert(projectMilestones).values(milestone).returning();
+    return m;
+  }
+
+  async getProjectMilestones(projectId: string): Promise<ProjectMilestone[]> {
+    return await db
+      .select()
+      .from(projectMilestones)
+      .where(eq(projectMilestones.projectId, projectId))
+      .orderBy(projectMilestones.orderIndex, projectMilestones.dueDate);
+  }
+
+  async updateMilestone(id: string, updates: Partial<InsertProjectMilestone>): Promise<ProjectMilestone | undefined> {
+    const [m] = await db
+      .update(projectMilestones)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(projectMilestones.id, id))
+      .returning();
+    return m;
+  }
+
+  async deleteMilestone(id: string): Promise<boolean> {
+    const result = await db.delete(projectMilestones).where(eq(projectMilestones.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Project assignment operations
@@ -905,6 +945,56 @@ export class DatabaseStorage implements IStorage {
       .from(taskActivity)
       .where(eq(taskActivity.taskId, taskId))
       .orderBy(desc(taskActivity.createdAt));
+  }
+
+  async updateTaskChecklist(taskId: string, checklist: any[], userId: string): Promise<ProjectTask | undefined> {
+    const [task] = await db
+      .update(projectTasks)
+      .set({ checklist: checklist as any, updatedAt: new Date() })
+      .where(eq(projectTasks.id, taskId))
+      .returning();
+
+    if (task) {
+      await db.insert(taskActivity).values({ taskId, userId, type: 'comment', message: 'Checklist updated' });
+    }
+    return task as unknown as ProjectTask | undefined;
+  }
+
+  async setTaskReminder(taskId: string, reminderAt: Date, userId: string): Promise<ProjectTask | undefined> {
+    const [task] = await db
+      .update(projectTasks)
+      .set({ reminderAt, updatedAt: new Date() })
+      .where(eq(projectTasks.id, taskId))
+      .returning();
+
+    if (task) {
+      await db.insert(taskActivity).values({ taskId, userId, type: 'comment', message: `Reminder set for ${reminderAt.toISOString()}` });
+    }
+    return task as unknown as ProjectTask | undefined;
+  }
+
+  async reviewTask(taskId: string, action: 'submit' | 'approve' | 'reject', userId: string, note?: string): Promise<ProjectTask | undefined> {
+    let updates: any = { updatedAt: new Date() };
+    if (action === 'submit') {
+      updates.status = 'in-progress';
+    } else if (action === 'approve') {
+      updates.status = 'completed';
+      updates.progressPct = 100;
+    } else if (action === 'reject') {
+      updates.status = 'pending';
+    }
+
+    const [task] = await db
+      .update(projectTasks)
+      .set(updates)
+      .where(eq(projectTasks.id, taskId))
+      .returning();
+
+    if (task) {
+      const message = note ? `${action.toUpperCase()}: ${note}` : `Task ${action}`;
+      await db.insert(taskActivity).values({ taskId, userId, type: 'status', message });
+    }
+    return task as unknown as ProjectTask | undefined;
   }
 
   // Additional methods for notification service

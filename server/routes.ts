@@ -15,6 +15,10 @@ import {
   insertTaskCompletionSchema,
   insertWorkScheduleSchema,
   insertScheduleBlockSchema,
+  insertProjectMilestoneSchema,
+  updateTaskChecklistSchema,
+  taskReviewActionSchema,
+  setTaskReminderSchema,
   createUserSchema,
   loginSchema,
   updateTaskStatusSchema,
@@ -229,6 +233,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching project:", error);
       res.status(500).json({ message: "Failed to fetch project" });
+    }
+  });
+
+  // Milestone Routes
+  app.get('/api/projects/:projectId/milestones', isAuthenticated, async (req, res) => {
+    try {
+      const milestones = await storage.getProjectMilestones(req.params.projectId);
+      res.json(milestones);
+    } catch (error) {
+      console.error('Error fetching milestones:', error);
+      res.status(500).json({ message: 'Failed to fetch milestones' });
+    }
+  });
+
+  app.post('/api/projects/:projectId/milestones', isAuthenticated, requireRole(['admin','professor']), async (req: any, res) => {
+    try {
+      const validated = insertProjectMilestoneSchema.parse({ ...req.body, projectId: req.params.projectId });
+      const milestone = await storage.createMilestone(validated);
+      res.status(201).json(milestone);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid milestone data', errors: error.errors });
+      }
+      console.error('Error creating milestone:', error);
+      res.status(500).json({ message: 'Failed to create milestone' });
+    }
+  });
+
+  app.patch('/api/milestones/:id', isAuthenticated, requireRole(['admin','professor']), async (req: any, res) => {
+    try {
+      const milestone = await storage.updateMilestone(req.params.id, req.body);
+      res.json(milestone);
+    } catch (error) {
+      console.error('Error updating milestone:', error);
+      res.status(500).json({ message: 'Failed to update milestone' });
+    }
+  });
+
+  app.delete('/api/milestones/:id', isAuthenticated, requireRole(['admin','professor']), async (req, res) => {
+    try {
+      const ok = await storage.deleteMilestone(req.params.id);
+      res.json({ success: ok });
+    } catch (error) {
+      console.error('Error deleting milestone:', error);
+      res.status(500).json({ message: 'Failed to delete milestone' });
     }
   });
 
@@ -967,6 +1016,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task checklist update
+  app.patch('/api/tasks/:taskId/checklist', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = req.user!;
+      const validated = updateTaskChecklistSchema.parse(req.body);
+      const task = await storage.updateTaskChecklist(req.params.taskId, validated.checklist, currentUser.id);
+      res.json(task);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid checklist data', errors: error.errors });
+      }
+      console.error('Error updating checklist:', error);
+      res.status(500).json({ message: 'Failed to update checklist' });
+    }
+  });
+
   app.post('/api/tasks/:taskId/comment', isAuthenticated, async (req, res) => {
     try {
       const currentUser = req.user!;
@@ -992,6 +1057,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task review actions: submit / approve / reject
+  app.patch('/api/tasks/:taskId/review', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = req.user!;
+      const validated = taskReviewActionSchema.parse(req.body);
+      const task = await storage.reviewTask(req.params.taskId, validated.action, currentUser.id, validated.note);
+      res.json(task);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid review action', errors: error.errors });
+      }
+      console.error('Error reviewing task:', error);
+      res.status(500).json({ message: 'Failed to review task' });
+    }
+  });
+
   // Delete a task (professors/admin only)
   app.delete('/api/tasks/:taskId', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
@@ -1006,6 +1087,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting task:", error);
       res.status(500).json({ message: "Failed to delete task" });
+    }
+  });
+
+  // Task reminder
+  app.patch('/api/tasks/:taskId/reminder', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = req.user!;
+      const validated = setTaskReminderSchema.parse(req.body);
+      const reminderAt = new Date(validated.reminderAt);
+      const task = await storage.setTaskReminder(req.params.taskId, reminderAt, currentUser.id);
+      res.json(task);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid reminder data', errors: error.errors });
+      }
+      console.error('Error setting reminder:', error);
+      res.status(500).json({ message: 'Failed to set reminder' });
     }
   });
 
