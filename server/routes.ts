@@ -236,6 +236,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update a project's overview fields
+  app.patch('/api/projects/:id', isAuthenticated, requireRole(['admin','professor']), async (req, res) => {
+    try {
+      const updates = insertProjectSchema.partial().parse(req.body);
+      const updated = await storage.updateProject(req.params.id, updates);
+      if (!updated) return res.status(404).json({ message: 'Project not found' });
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid project data', errors: error.errors });
+      }
+      console.error('Error updating project:', error);
+      res.status(500).json({ message: 'Failed to update project' });
+    }
+  });
+
   // Milestone Routes
   app.get('/api/projects/:projectId/milestones', isAuthenticated, async (req, res) => {
     try {
@@ -282,6 +298,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Assignment Routes
+  // List active assignments for a project
+  app.get('/api/projects/:projectId/assignments', isAuthenticated, requireRole(['admin','professor']), async (req, res) => {
+    try {
+      const items = await storage.getProjectAssignments(req.params.projectId);
+      res.json(items);
+    } catch (error) {
+      console.error('Error fetching project assignments:', error);
+      res.status(500).json({ message: 'Failed to fetch project assignments' });
+    }
+  });
   app.post('/api/assignments', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
       const currentUser = req.user!;
@@ -309,6 +335,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating assignment:", error);
       res.status(500).json({ message: "Failed to create assignment" });
+    }
+  });
+
+  // Deactivate an assignment (remove student from project)
+  app.delete('/api/assignments/:assignmentId', isAuthenticated, requireRole(['admin','professor']), async (req, res) => {
+    try {
+      const ok = await storage.deactivateProjectAssignment(req.params.assignmentId);
+      if (!ok) return res.status(404).json({ message: 'Assignment not found' });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deactivating assignment:', error);
+      res.status(500).json({ message: 'Failed to deactivate assignment' });
     }
   });
 

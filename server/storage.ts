@@ -77,6 +77,7 @@ export interface IStorage {
   createProjectAssignment(assignment: InsertProjectAssignment): Promise<ProjectAssignment>;
   getUserAssignments(userId: string): Promise<ProjectAssignment[]>;
   getProjectAssignments(projectId: string): Promise<ProjectAssignment[]>;
+  deactivateProjectAssignment(assignmentId: string): Promise<boolean>;
   
   // Progress tracking operations
   createProgressUpdate(update: InsertProgressUpdate): Promise<ProgressUpdate>;
@@ -354,6 +355,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(projectAssignments)
       .where(and(eq(projectAssignments.projectId, projectId), eq(projectAssignments.isActive, true)));
+  }
+
+  async deactivateProjectAssignment(assignmentId: string): Promise<boolean> {
+    const result = await db
+      .update(projectAssignments)
+      .set({ isActive: false })
+      .where(eq(projectAssignments.id, assignmentId));
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Progress tracking operations

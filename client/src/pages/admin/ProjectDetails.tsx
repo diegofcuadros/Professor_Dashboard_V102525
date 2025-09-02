@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import TaskList from "@/components/tasks/TaskList";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ProjectDetails() {
   const [match, params] = useRoute("/admin/projects/:projectId");
@@ -26,6 +27,16 @@ export default function ProjectDetails() {
   const { data: milestones } = useQuery({
     queryKey: [`/api/projects/${projectId}/milestones`],
     enabled: !!projectId,
+  });
+
+  const { data: assignments } = useQuery({
+    queryKey: [`/api/projects/${projectId}/assignments`],
+    enabled: !!projectId,
+  });
+
+  const { data: allUsers } = useQuery({
+    queryKey: ["/api/users"],
+    enabled: true,
   });
 
   const [milestoneTitle, setMilestoneTitle] = useState("");
@@ -49,6 +60,67 @@ export default function ProjectDetails() {
     },
   });
 
+  // Overview editable fields
+  const [objective, setObjective] = useState("");
+  const [successCriteria, setSuccessCriteria] = useState("");
+  const [deliverables, setDeliverables] = useState<string>("[]");
+
+  useEffect(() => {
+    if (project) {
+      setObjective(project.objective || "");
+      setSuccessCriteria(project.successCriteria || "");
+      setDeliverables(JSON.stringify(project.deliverables || [], null, 2));
+    }
+  }, [project]);
+
+  const updateProject = useMutation({
+    mutationFn: async () => {
+      let parsedDeliverables: any = undefined;
+      try {
+        parsedDeliverables = deliverables.trim() ? JSON.parse(deliverables) : undefined;
+      } catch (e) {
+        toast({ title: "Invalid deliverables JSON", variant: "destructive" });
+        throw e;
+      }
+      return apiRequest("PATCH", `/api/projects/${projectId}`, {
+        objective: objective || undefined,
+        successCriteria: successCriteria || undefined,
+        deliverables: parsedDeliverables,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}`] });
+      toast({ title: "Project updated" });
+    },
+  });
+
+  // Assignment management
+  const [selectedStudent, setSelectedStudent] = useState<string>("");
+
+  const assignStudent = useMutation({
+    mutationFn: async () =>
+      apiRequest("POST", "/api/assignments", {
+        userId: selectedStudent,
+        projectId,
+        role: "contributor",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/assignments`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setSelectedStudent("");
+      toast({ title: "Student assigned" });
+    },
+  });
+
+  const removeAssignment = useMutation({
+    mutationFn: async (assignmentId: string) =>
+      apiRequest("DELETE", `/api/assignments/${assignmentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/assignments`] });
+      toast({ title: "Assignment removed" });
+    },
+  });
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -67,18 +139,79 @@ export default function ProjectDetails() {
               <TabsTrigger value="tasks">Tasks</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-4 pt-4">
-              <div>
-                <Label>Objective</Label>
-                <p className="text-muted-foreground whitespace-pre-wrap">{project?.objective || "—"}</p>
+            <TabsContent value="overview" className="space-y-6 pt-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label>Objective</Label>
+                  <Textarea rows={4} value={objective} onChange={(e) => setObjective(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Success Criteria</Label>
+                  <Textarea rows={4} value={successCriteria} onChange={(e) => setSuccessCriteria(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Deliverables (JSON)</Label>
+                  <Textarea rows={6} value={deliverables} onChange={(e) => setDeliverables(e.target.value)} className="font-mono text-xs" />
+                </div>
+                <div className="flex justify-end">
+                  <Button onClick={() => updateProject.mutate()} disabled={updateProject.isPending}>
+                    {updateProject.isPending ? "Saving..." : "Save Overview"}
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Label>Success Criteria</Label>
-                <p className="text-muted-foreground whitespace-pre-wrap">{project?.successCriteria || "—"}</p>
-              </div>
-              <div>
-                <Label>Deliverables</Label>
-                <pre className="text-xs bg-muted/50 p-3 rounded-md overflow-auto">{JSON.stringify(project?.deliverables || [], null, 2)}</pre>
+
+              <div className="border-t pt-4 space-y-4">
+                <h3 className="text-lg font-semibold">Assigned Students</h3>
+                <div className="flex items-end gap-3">
+                  <div className="w-80">
+                    <Label>Select student</Label>
+                    <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Choose a student" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(allUsers || [])
+                          ?.filter((u: any) => u.role === 'student' && u.isActive !== false)
+                          .map((u: any) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.firstName || ''} {u.lastName || ''} ({u.email})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={() => selectedStudent && assignStudent.mutate()} disabled={!selectedStudent || assignStudent.isPending}>
+                    {assignStudent.isPending ? 'Assigning...' : 'Assign Student'}
+                  </Button>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Assigned At</TableHead>
+                      <TableHead className="w-24"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(assignments || []).map((a: any) => {
+                      const user = (allUsers || []).find((u: any) => u.id === a.userId);
+                      return (
+                        <TableRow key={a.id}>
+                          <TableCell>{user ? `${user.firstName || ''} ${user.lastName || ''} (${user.email})` : a.userId}</TableCell>
+                          <TableCell>{a.role || 'member'}</TableCell>
+                          <TableCell>{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : ''}</TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm" onClick={() => removeAssignment.mutate(a.id)} disabled={removeAssignment.isPending}>
+                              Remove
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             </TabsContent>
 
@@ -131,7 +264,7 @@ export default function ProjectDetails() {
             </TabsContent>
 
             <TabsContent value="tasks" className="pt-4">
-              <TaskList showProject={false} />
+              <TaskList projectId={projectId} showProject={false} />
             </TabsContent>
           </Tabs>
         </CardContent>
