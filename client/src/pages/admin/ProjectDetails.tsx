@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import TaskList from "@/components/tasks/TaskList";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ProjectDetails() {
@@ -37,6 +36,12 @@ export default function ProjectDetails() {
   const { data: allUsers } = useQuery({
     queryKey: ["/api/users"],
     enabled: true,
+  });
+
+  // Project tasks (professor/admin view: all tasks in project)
+  const { data: projectTasks } = useQuery({
+    queryKey: [`/api/projects/${projectId}/tasks`],
+    enabled: !!projectId,
   });
 
   const [milestoneTitle, setMilestoneTitle] = useState("");
@@ -118,6 +123,75 @@ export default function ProjectDetails() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/assignments`] });
       toast({ title: "Assignment removed" });
+    },
+  });
+
+  // Task create/edit/delete
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDesc, setNewTaskDesc] = useState("");
+  const [newTaskDue, setNewTaskDue] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState("medium");
+
+  const createTask = useMutation({
+    mutationFn: async () =>
+      apiRequest("POST", `/api/projects/${projectId}/tasks`, {
+        title: newTaskTitle,
+        description: newTaskDesc || undefined,
+        dueDate: newTaskDue ? new Date(newTaskDue).toISOString() : undefined,
+        priority: newTaskPriority,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/tasks`] });
+      setNewTaskTitle("");
+      setNewTaskDesc("");
+      setNewTaskDue("");
+      setNewTaskPriority("medium");
+      toast({ title: "Task created" });
+    },
+  });
+
+  const [editTaskId, setEditTaskId] = useState<string>("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editDue, setEditDue] = useState("");
+  const [editPriority, setEditPriority] = useState("medium");
+
+  const startEdit = (task: any) => {
+    setEditTaskId(task.id);
+    setEditTitle(task.title || "");
+    setEditDesc(task.description || "");
+    setEditPriority(task.priority || "medium");
+    setEditDue(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "");
+  };
+
+  const cancelEdit = () => {
+    setEditTaskId("");
+    setEditTitle("");
+    setEditDesc("");
+    setEditDue("");
+    setEditPriority("medium");
+  };
+
+  const updateTask = useMutation({
+    mutationFn: async () =>
+      apiRequest("PUT", `/api/tasks/${editTaskId}`, {
+        title: editTitle || undefined,
+        description: editDesc || undefined,
+        dueDate: editDue ? new Date(editDue).toISOString() : undefined,
+        priority: editPriority,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/tasks`] });
+      toast({ title: "Task updated" });
+      cancelEdit();
+    },
+  });
+
+  const deleteTask = useMutation({
+    mutationFn: async (taskId: string) => apiRequest("DELETE", `/api/tasks/${taskId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/projects/${projectId}/tasks`] });
+      toast({ title: "Task deleted" });
     },
   });
 
@@ -263,8 +337,108 @@ export default function ProjectDetails() {
               </Table>
             </TabsContent>
 
-            <TabsContent value="tasks" className="pt-4">
-              <TaskList projectId={projectId} showProject={false} />
+            <TabsContent value="tasks" className="space-y-6 pt-4">
+              {/* Create Task */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newTaskTitle.trim()) return;
+                  createTask.mutate();
+                }}
+                className="grid grid-cols-4 gap-3"
+              >
+                <div className="col-span-2">
+                  <Label>Title</Label>
+                  <Input value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} />
+                </div>
+                <div className="col-span-1">
+                  <Label>Due Date</Label>
+                  <Input type="date" value={newTaskDue} onChange={(e) => setNewTaskDue(e.target.value)} />
+                </div>
+                <div className="col-span-1">
+                  <Label>Priority</Label>
+                  <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Priority" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-4">
+                  <Label>Description</Label>
+                  <Textarea rows={3} value={newTaskDesc} onChange={(e) => setNewTaskDesc(e.target.value)} />
+                </div>
+                <div className="col-span-4 flex justify-end">
+                  <Button type="submit" disabled={createTask.isPending}>
+                    {createTask.isPending ? 'Creating...' : 'Create Task'}
+                  </Button>
+                </div>
+              </form>
+
+              {/* Tasks List */}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Due</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-40">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(projectTasks || []).map((t: any) => (
+                    <TableRow key={t.id}>
+                      <TableCell>
+                        {editTaskId === t.id ? (
+                          <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                        ) : (
+                          t.title
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editTaskId === t.id ? (
+                          <Input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)} />
+                        ) : (
+                          t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '—'
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editTaskId === t.id ? (
+                          <Select value={editPriority} onValueChange={setEditPriority}>
+                            <SelectTrigger className="mt-1"><SelectValue placeholder="Priority" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">Low</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="urgent">Urgent</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          t.priority
+                        )}
+                      </TableCell>
+                      <TableCell>{t.status || 'pending'}</TableCell>
+                      <TableCell className="space-x-2">
+                        {editTaskId === t.id ? (
+                          <>
+                            <Button size="sm" onClick={() => updateTask.mutate()} disabled={updateTask.isPending}>Save</Button>
+                            <Button size="sm" variant="outline" onClick={cancelEdit}>Cancel</Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => startEdit(t)}>Edit</Button>
+                            <Button size="sm" variant="destructive" onClick={() => deleteTask.mutate(t.id)} disabled={deleteTask.isPending}>Delete</Button>
+                          </>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </TabsContent>
           </Tabs>
         </CardContent>

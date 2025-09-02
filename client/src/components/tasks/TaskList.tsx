@@ -28,7 +28,7 @@ export default function TaskList({ projectId, title = "My Tasks", showProject = 
     : `/api/user/tasks`;
 
   const { data: tasks, isLoading, error, refetch } = useQuery({
-    queryKey: projectId ? ["/api/user/projects", projectId, "tasks"] : ["/api/user/tasks"],
+    queryKey: [apiEndpoint],
     enabled: !!user?.id,
     retry: false,
   });
