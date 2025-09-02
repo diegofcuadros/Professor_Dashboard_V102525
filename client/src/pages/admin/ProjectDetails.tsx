@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
+import { useRoute } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, apiRequestJson } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,11 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import TaskList from "@/components/tasks/TaskList";
 
 export default function ProjectDetails() {
-  const [, params] = useLocation();
-  const projectId = useMemo(() => {
-    const match = (params || "").match(/\/admin\/projects\/(.+)$/);
-    return match ? match[1] : "";
-  }, [params]);
+  const [match, params] = useRoute("/admin/projects/:projectId");
+  const projectId = match ? (params as any).projectId : "";
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
