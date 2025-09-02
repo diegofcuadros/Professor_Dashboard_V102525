@@ -84,8 +84,15 @@ export default function ProjectDetails() {
       try {
         parsedDeliverables = deliverables.trim() ? JSON.parse(deliverables) : undefined;
       } catch (e) {
-        toast({ title: "Invalid deliverables JSON", variant: "destructive" });
-        throw e;
+        // Fallback: wrap plain text as a simple list [{ title }]
+        const trimmed = deliverables.trim();
+        if (trimmed.length > 0) {
+          parsedDeliverables = trimmed
+            .split(/\n+/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((title) => ({ title }));
+        }
       }
       return apiRequest("PATCH", `/api/projects/${projectId}`, {
         objective: objective || undefined,

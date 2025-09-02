@@ -965,11 +965,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentUser = req.user!;
       const projectId = req.params.projectId;
       
-      const validatedData = insertProjectTaskSchema.parse({
+      // Coerce dueDate if sent as yyyy-mm-dd or ISO string
+      const payload = {
         ...req.body,
         projectId,
         createdBy: currentUser.id,
-      });
+        dueDate: req.body?.dueDate ? new Date(req.body.dueDate) : undefined,
+      };
+      const validatedData = insertProjectTaskSchema.parse(payload);
       
       const task = await storage.createProjectTask(validatedData);
 
@@ -1004,7 +1007,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/tasks/:taskId', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
       const taskId = req.params.taskId;
-      const validatedData = insertProjectTaskSchema.partial().parse(req.body);
+      const payload = {
+        ...req.body,
+        dueDate: req.body?.dueDate ? new Date(req.body.dueDate) : undefined,
+      };
+      const validatedData = insertProjectTaskSchema.partial().parse(payload);
       
       const task = await storage.updateProjectTask(taskId, validatedData);
       if (!task) {
