@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useRoute } from "wouter";
+import { useRoute, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,8 +78,16 @@ export default function StudentProjectDetails() {
   return (
     <div className="p-6 space-y-6">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{project?.name || "Project"}</CardTitle>
+          <div className="flex gap-2">
+            <Link href="/student/projects">
+              <Button variant="outline" size="sm">Back to My Projects</Button>
+            </Link>
+            <Link href="/dashboard">
+              <Button variant="ghost" size="sm">Go to Dashboard</Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); window.location.hash = v; }}>
