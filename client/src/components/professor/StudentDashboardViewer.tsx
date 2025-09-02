@@ -365,138 +365,129 @@ export default function StudentDashboardViewer() {
                         </Card>
                       )}
 
-                      {/* Key Metrics */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <Card>
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-muted-foreground">Total Projects</p>
-                                <p className="text-2xl font-bold">{dashboardData.metrics.totalProjects}</p>
-                              </div>
-                              <BarChart3 className="h-6 w-6 text-blue-500" />
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-muted-foreground">Total Tasks</p>
-                                <p className="text-2xl font-bold">{dashboardData.metrics.totalTasks}</p>
-                              </div>
-                              <BarChart3 className="h-6 w-6 text-blue-500" />
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-muted-foreground">Completed</p>
-                                <p className="text-2xl font-bold text-green-600">{dashboardData.metrics.completedTasks}</p>
-                              </div>
-                              <CheckCircle2 className="h-6 w-6 text-green-500" />
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-muted-foreground">In Progress</p>
-                                <p className="text-2xl font-bold text-yellow-600">{dashboardData.metrics.inProgressTasks}</p>
-                              </div>
-                              <Clock className="h-6 w-6 text-yellow-500" />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Additional Metrics */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Card>
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-muted-foreground">Total Hours Scheduled</p>
-                                <p className="text-2xl font-bold">{dashboardData.metrics.totalHoursScheduled}h</p>
-                              </div>
-                              <Clock className="h-6 w-6 text-blue-500" />
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-muted-foreground">Unread Notifications</p>
-                                <p className="text-2xl font-bold">{dashboardData.metrics.unreadNotifications}</p>
-                              </div>
-                              <AlertTriangle className="h-6 w-6 text-orange-500" />
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-muted-foreground">Risk Level</p>
-                                <Badge variant={
-                                  dashboardData.metrics.riskLevel === 'high' ? 'destructive' :
-                                  dashboardData.metrics.riskLevel === 'medium' ? 'secondary' : 'default'
-                                }>
-                                  {dashboardData.metrics.riskLevel?.toUpperCase()}
-                                </Badge>
-                              </div>
-                              <BarChart3 className="h-6 w-6 text-red-500" />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Completion Rate */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Performance Overview</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium">Task Completion Rate</span>
-                                <span className="text-sm font-medium">
-                                  {dashboardData.metrics.totalTasks > 0 ? 
-                                    Math.round((dashboardData.metrics.completedTasks / dashboardData.metrics.totalTasks) * 100) : 0}%
-                                </span>
-                              </div>
-                              <div className="w-full bg-muted rounded-full h-2">
-                                <div 
-                                  className="bg-primary rounded-full h-2 transition-all"
-                                  style={{ 
-                                    width: `${dashboardData.metrics.totalTasks > 0 ? 
-                                      (dashboardData.metrics.completedTasks / dashboardData.metrics.totalTasks) * 100 : 0}%` 
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium">Productivity Score</span>
-                                <Badge variant={getStatusBadge(dashboardData.metrics.productivityScore)}>
-                                  {dashboardData.metrics.productivityScore}/100
-                                </Badge>
-                              </div>
-                            </div>
+                      {/* Key & Additional Metrics + Performance */}
+                      {dashboardData?.metrics && (
+                        <>
+                          {/* Key Metrics */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* Total Projects */}
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Total Projects</p>
+                                    <p className="text-2xl font-bold">{dashboardData.metrics.totalProjects}</p>
+                                  </div>
+                                  <BarChart3 className="h-6 w-6 text-blue-500" />
+                                </div>
+                              </CardContent>
+                            </Card>
+                            {/* Total Tasks */}
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Total Tasks</p>
+                                    <p className="text-2xl font-bold">{dashboardData.metrics.totalTasks}</p>
+                                  </div>
+                                  <BarChart3 className="h-6 w-6 text-blue-500" />
+                                </div>
+                              </CardContent>
+                            </Card>
+                            {/* Completed Tasks */}
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Completed</p>
+                                    <p className="text-2xl font-bold text-green-600">{dashboardData.metrics.completedTasks}</p>
+                                  </div>
+                                  <CheckCircle2 className="h-6 w-6 text-green-500" />
+                                </div>
+                              </CardContent>
+                            </Card>
+                            {/* In Progress */}
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-muted-foreground">In Progress</p>
+                                    <p className="text-2xl font-bold text-yellow-600">{dashboardData.metrics.inProgressTasks}</p>
+                                  </div>
+                                  <Clock className="h-6 w-6 text-yellow-500" />
+                                </div>
+                              </CardContent>
+                            </Card>
                           </div>
-                        </CardContent>
-                      </Card>
+
+                          {/* Additional Metrics */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Total Hours Scheduled</p>
+                                    <p className="text-2xl font-bold">{dashboardData.metrics.totalHoursScheduled}h</p>
+                                  </div>
+                                  <Clock className="h-6 w-6 text-blue-500" />
+                                </div>
+                              </CardContent>
+                            </Card>
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Unread Notifications</p>
+                                    <p className="text-2xl font-bold">{dashboardData.metrics.unreadNotifications}</p>
+                                  </div>
+                                  <AlertTriangle className="h-6 w-6 text-orange-500" />
+                                </div>
+                              </CardContent>
+                            </Card>
+                            <Card>
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium text-muted-foreground">Risk Level</p>
+                                    <Badge variant={dashboardData.metrics.riskLevel === 'high' ? 'destructive' : dashboardData.metrics.riskLevel === 'medium' ? 'secondary' : 'default'}>
+                                      {dashboardData.metrics.riskLevel?.toUpperCase()}
+                                    </Badge>
+                                  </div>
+                                  <BarChart3 className="h-6 w-6 text-red-500" />
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+
+                          {/* Completion Rate & Productivity */}
+                          <Card>
+                            <CardHeader>
+                              <CardTitle>Performance Overview</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-4">
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium">Task Completion Rate</span>
+                                    <span className="text-sm font-medium">
+                                      {dashboardData.metrics.totalTasks > 0 ? Math.round((dashboardData.metrics.completedTasks / dashboardData.metrics.totalTasks) * 100) : 0}%
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-muted rounded-full h-2">
+                                    <div className="bg-primary rounded-full h-2 transition-all" style={{ width: `${dashboardData.metrics.totalTasks > 0 ? (dashboardData.metrics.completedTasks / dashboardData.metrics.totalTasks) * 100 : 0}%` }} />
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium">Productivity Score</span>
+                                    <Badge variant={getStatusBadge(dashboardData.metrics.productivityScore)}>{dashboardData.metrics.productivityScore}/100</Badge>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </>
+                      )}
                     </>
                   ) : (
                     <Card>
