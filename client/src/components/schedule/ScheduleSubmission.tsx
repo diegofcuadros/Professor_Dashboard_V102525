@@ -95,6 +95,9 @@ export default function ScheduleSubmission() {
   const [showAddBlock, setShowAddBlock] = useState(false);
   const [activeDay, setActiveDay] = useState<string>('monday');
   const [durationHours, setDurationHours] = useState<number>(1);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [inlineAddForm, setInlineAddForm] = useState<{ startTime: string; location: string; plannedActivity: string }>({ startTime: '09:00', location: 'lab', plannedActivity: 'research' });
+  const [inlineAddDuration, setInlineAddDuration] = useState<number>(1);
   
   // Form states
   const [notes, setNotes] = useState("");
@@ -104,6 +107,29 @@ export default function ScheduleSubmission() {
     endTime: '10:00',
     location: 'lab',
     plannedActivity: 'research'
+  });
+
+  const updateBlockMutation = useMutation({
+    mutationFn: async ({ blockId, updates }: { blockId: string; updates: any }) => {
+      return await apiRequest("PUT", `/api/work-schedules/${editingSchedule!.id}/blocks/${blockId}`, updates);
+    },
+    onSuccess: async () => {
+      setEditingRowId(null);
+      await refetchBlocks();
+      queryClient.invalidateQueries({ queryKey: ["/api/work-schedules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/schedule-validation"] });
+    },
+  });
+
+  const deleteBlockMutation = useMutation({
+    mutationFn: async ({ blockId }: { blockId: string }) => {
+      return await apiRequest("DELETE", `/api/work-schedules/${editingSchedule!.id}/blocks/${blockId}`);
+    },
+    onSuccess: async () => {
+      await refetchBlocks();
+      queryClient.invalidateQueries({ queryKey: ["/api/work-schedules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/schedule-validation"] });
+    },
   });
 
   // Fetch user's schedules
@@ -663,23 +689,58 @@ export default function ScheduleSubmission() {
                         .filter(block => (block.dayOfWeek || '').toLowerCase() === activeDay)
                         .map((block, index) => (
                         <TableRow key={block.id || index}>
-                          <TableCell className="capitalize">{block.dayOfWeek}</TableCell>
-                          <TableCell>{block.startTime} - {block.endTime}</TableCell>
-                          <TableCell>{calculateDuration(block.startTime, block.endTime).toFixed(1)}h</TableCell>
-                          <TableCell className="capitalize">{block.location}</TableCell>
-                          <TableCell className="capitalize">{block.plannedActivity}</TableCell>
-                          <TableCell>
-                            {currentSchedule?.status === 'draft' && selectedWeek === getCurrentWeek() && (
-                              <div className="flex space-x-1">
-                                <Button size="sm" variant="outline">
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button size="sm" variant="outline">
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            )}
-                          </TableCell>
+                          {editingRowId === block.id ? (
+                            <>
+                              <TableCell className="capitalize">{block.dayOfWeek}</TableCell>
+                              <TableCell>
+                                <Select value={block.startTime} onValueChange={(v) => setEditForm(prev => ({ ...prev, startTime: v }))}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {START_TIMES.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Select value={String(editForm.durationHours)} onValueChange={(v) => setEditForm(prev => ({ ...prev, durationHours: parseInt(v,10) || 1 }))}>
+                                  <SelectTrigger><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {Array.from({ length: 8 }, (_, i) => i + 1).map(h => (<SelectItem key={h} value={String(h)}>{h}</SelectItem>))}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell><Input defaultValue={block.location} onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))} /></TableCell>
+                              <TableCell><Input defaultValue={block.plannedActivity} onChange={(e) => setEditForm(prev => ({ ...prev, plannedActivity: e.target.value }))} /></TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Button size="sm" onClick={() => {
+                                    const end = computeEndTime(editForm.startTime || block.startTime, editForm.durationHours || 1);
+                                    updateBlockMutation.mutate({ blockId: String(block.id), updates: { startTime: editForm.startTime || block.startTime, endTime: end, location: editForm.location || block.location, plannedActivity: editForm.plannedActivity || block.plannedActivity } });
+                                  }}>Save</Button>
+                                  <Button size="sm" variant="ghost" onClick={() => setEditingRowId(null)}>Cancel</Button>
+                                </div>
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell className="capitalize">{block.dayOfWeek}</TableCell>
+                              <TableCell>{block.startTime} - {block.endTime}</TableCell>
+                              <TableCell>{calculateDuration(block.startTime, block.endTime).toFixed(1)}h</TableCell>
+                              <TableCell className="capitalize">{block.location}</TableCell>
+                              <TableCell className="capitalize">{block.plannedActivity}</TableCell>
+                              <TableCell>
+                                {currentSchedule?.status === 'draft' && selectedWeek === getCurrentWeek() && (
+                                  <div className="flex space-x-1">
+                                    <Button size="sm" variant="outline" onClick={() => { setEditingRowId(String(block.id)); setEditForm({ dayOfWeek: block.dayOfWeek, startTime: block.startTime, durationHours: calculateDuration(block.startTime, block.endTime), location: block.location, plannedActivity: block.plannedActivity }); }}>
+                                      <Edit className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => deleteBlockMutation.mutate({ blockId: String(block.id) })}>
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                            </>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -695,6 +756,32 @@ export default function ScheduleSubmission() {
                       <strong>Note:</strong> You need at least 20 hours of schedule blocks to submit for approval
                     </p>
                   )}
+                </div>
+              )}
+
+              {currentSchedule?.status === 'draft' && selectedWeek === getCurrentWeek() && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-6 gap-2 items-center">
+                  <div className="text-sm capitalize">Add to {activeDay}</div>
+                  <Select value={inlineAddForm.startTime} onValueChange={(v) => setInlineAddForm(prev => ({ ...prev, startTime: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {START_TIMES.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={String(inlineAddDuration)} onValueChange={(v) => setInlineAddDuration(parseInt(v,10) || 1)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 8 }, (_, i) => i + 1).map(h => (<SelectItem key={h} value={String(h)}>{h}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                  <Input value={inlineAddForm.location} onChange={(e) => setInlineAddForm(prev => ({ ...prev, location: e.target.value }))} placeholder="Location" />
+                  <Input value={inlineAddForm.plannedActivity} onChange={(e) => setInlineAddForm(prev => ({ ...prev, plannedActivity: e.target.value }))} placeholder="Activity" />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => {
+                      const end = computeEndTime(inlineAddForm.startTime, inlineAddDuration || 1);
+                      createBlockMutation.mutate({ scheduleId: editingSchedule!.id, blockData: { dayOfWeek: activeDay, startTime: inlineAddForm.startTime, endTime: end, location: inlineAddForm.location, plannedActivity: inlineAddForm.plannedActivity } });
+                    }}>Add</Button>
+                  </div>
                 </div>
               )}
               
