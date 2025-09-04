@@ -18,6 +18,7 @@ interface SidebarItem {
   id: string;
   label: string;
   icon: string;
+  count?: number;
 }
 
 interface SidebarProps {
@@ -63,7 +64,12 @@ export default function Sidebar({ items, activeSection, onSectionChange }: Sideb
               data-testid={`nav-${item.id}`}
             >
               <Icon className="w-4 h-4 mr-3" />
-              <span>{item.label}</span>
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.count && item.count > 0 && (
+                <span className="ml-auto text-xs rounded-full px-2 py-0.5 bg-red-600 text-white">
+                  {item.count > 9 ? '9+' : item.count}
+                </span>
+              )}
             </Button>
           );
         })}

@@ -13,7 +13,7 @@ import { Clock, Projector, Calendar, TrendingUp, Plus, BookOpen, HelpCircle } fr
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-const studentSidebarItems = [
+const baseStudentSidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: 'chart-line' },
   { id: 'projects', label: 'My Projects', icon: 'project-diagram' },
   { id: 'messages', label: 'Messages', icon: 'message-circle' },
@@ -60,7 +60,18 @@ export default function StudentDashboard() {
     return null;
   }
 
-  const unreadNotifications = notifications?.filter(n => !n.readAt).length || 0;
+  const unread = (notifications || []).filter((n: any) => !n.readAt);
+  const countMessages = unread.filter((n: any) => n.type === 'direct_message' || n.relatedEntityType === 'message').length;
+  const countSchedule = unread.filter((n: any) => n.relatedEntityType === 'schedule' || n.type === 'reminder').length;
+  const countProjects = unread.filter((n: any) => ['project','task','milestone'].includes(n.relatedEntityType)).length;
+  const unreadNotifications = unread.length;
+
+  const studentSidebarItems = baseStudentSidebarItems.map((item) => {
+    if (item.id === 'messages') return { ...item, count: countMessages } as any;
+    if (item.id === 'schedule') return { ...item, count: countSchedule } as any;
+    if (item.id === 'projects') return { ...item, count: countProjects } as any;
+    return item as any;
+  });
 
   return (
     <div className="min-h-screen bg-background">
