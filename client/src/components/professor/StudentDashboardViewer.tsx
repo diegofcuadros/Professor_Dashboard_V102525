@@ -147,10 +147,15 @@ export default function StudentDashboardViewer() {
   // Professor edit state for blocks
   const [editingBlock, setEditingBlock] = useState<any | null>(null);
   const [showAddProfessorBlock, setShowAddProfessorBlock] = useState(false);
-  const [addForm, setAddForm] = useState<{ dayOfWeek: string; startTime: string; hours: number; location: string; plannedActivity: string }>({
+  const WEEKDAYS = ['monday','tuesday','wednesday','thursday','friday'];
+  const START_TIMES = Array.from({ length: 10 }, (_, i) => {
+    const hour = 9 + i; if (hour > 18) return null as unknown as string; return `${String(hour).padStart(2,'0')}:00`;
+  }).filter(Boolean) as string[];
+  const [activeDay, setActiveDay] = useState<string>('monday');
+  const [durationHours, setDurationHours] = useState<number>(1);
+  const [addForm, setAddForm] = useState<{ dayOfWeek: string; startTime: string; location: string; plannedActivity: string }>({
     dayOfWeek: 'monday',
     startTime: '09:00',
-    hours: 0,
     location: 'lab',
     plannedActivity: 'research'
   });
@@ -688,11 +693,19 @@ export default function StudentDashboardViewer() {
                               {s.id === currentScheduleId && (
                                 <div className="mt-3 space-y-2">
                                   <div className="text-sm font-medium">Schedule Details</div>
+                                  {/* Weekday tabs */}
+                                  <Tabs value={activeDay} onValueChange={setActiveDay}>
+                                    <TabsList className="mb-2">
+                                      {WEEKDAYS.map(day => (
+                                        <TabsTrigger key={day} value={day} className="capitalize">{day}</TabsTrigger>
+                                      ))}
+                                    </TabsList>
+                                  </Tabs>
                                   {(!scheduleBlocks || scheduleBlocks.length === 0) ? (
                                     <div className="text-sm text-muted-foreground">No schedule blocks yet</div>
                                   ) : (
                                     <div className="grid grid-cols-1 gap-2">
-                                      {scheduleBlocks.map((block: any) => (
+                                      {scheduleBlocks.filter((block: any) => (block.dayOfWeek || '').toLowerCase() === activeDay).map((block: any) => (
                                       <div key={block.id} className="p-2 bg-muted rounded text-sm">
                                         {editingBlock && editingBlock.id === block.id ? (
                                           <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
@@ -735,15 +748,30 @@ export default function StudentDashboardViewer() {
                                       <Button size="sm" variant="outline" onClick={() => setShowAddProfessorBlock(true)}>Add Block</Button>
                                       {showAddProfessorBlock && (
                                         <div className="mt-2 grid grid-cols-1 md:grid-cols-6 gap-2">
-                                          <Input placeholder="Day (monday)" onChange={(e) => setAddForm(prev => ({ ...prev, dayOfWeek: e.target.value }))} />
-                                          <Input placeholder="Start (09:00)" onChange={(e) => setAddForm(prev => ({ ...prev, startTime: e.target.value }))} />
-                                          <Input placeholder="Hours (e.g. 2.5)" onChange={(e) => setAddForm(prev => ({ ...prev, hours: parseFloat(e.target.value || '0') }))} />
-                                          <Input placeholder="Location (lab)" onChange={(e) => setAddForm(prev => ({ ...prev, location: e.target.value }))} />
-                                          <Input placeholder="Activity (research)" onChange={(e) => setAddForm(prev => ({ ...prev, plannedActivity: e.target.value }))} />
+                                          <Select value={activeDay} onValueChange={(v) => { setActiveDay(v); setAddForm(prev => ({ ...prev, dayOfWeek: v })); }}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                              {WEEKDAYS.map(d => (<SelectItem key={d} value={d} className="capitalize">{d}</SelectItem>))}
+                                            </SelectContent>
+                                          </Select>
+                                          <Select value={addForm.startTime} onValueChange={(v) => setAddForm(prev => ({ ...prev, startTime: v }))}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                              {START_TIMES.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                                            </SelectContent>
+                                          </Select>
+                                          <Select value={String(durationHours)} onValueChange={(v) => setDurationHours(parseInt(v, 10) || 1)}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                              {Array.from({ length: 8 }, (_, i) => i + 1).map(h => (<SelectItem key={h} value={String(h)}>{h}</SelectItem>))}
+                                            </SelectContent>
+                                          </Select>
+                                          <Input placeholder="Location (lab)" value={addForm.location} onChange={(e) => setAddForm(prev => ({ ...prev, location: e.target.value }))} />
+                                          <Input placeholder="Activity (research)" value={addForm.plannedActivity} onChange={(e) => setAddForm(prev => ({ ...prev, plannedActivity: e.target.value }))} />
                                           <div className="flex gap-2">
                                             <Button size="sm" onClick={() => {
-                                              const end = computeEndTime(addForm.startTime, addForm.hours || 0);
-                                              addBlockMutation.mutate({ scheduleId: s.id, blockData: { dayOfWeek: addForm.dayOfWeek, startTime: addForm.startTime, endTime: end, location: addForm.location, plannedActivity: addForm.plannedActivity } });
+                                              const end = computeEndTime(addForm.startTime, durationHours || 1);
+                                              addBlockMutation.mutate({ scheduleId: s.id, blockData: { dayOfWeek: activeDay, startTime: addForm.startTime, endTime: end, location: addForm.location, plannedActivity: addForm.plannedActivity } });
                                             }}>Save</Button>
                                             <Button size="sm" variant="ghost" onClick={() => setShowAddProfessorBlock(false)}>Cancel</Button>
                                           </div>
