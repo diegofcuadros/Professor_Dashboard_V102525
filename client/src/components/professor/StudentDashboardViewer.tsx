@@ -147,7 +147,13 @@ export default function StudentDashboardViewer() {
   // Professor edit state for blocks
   const [editingBlock, setEditingBlock] = useState<any | null>(null);
   const [showAddProfessorBlock, setShowAddProfessorBlock] = useState(false);
-  const addForm: any = { dayOfWeek: 'monday', startTime: '09:00', endTime: '17:00', location: 'lab', plannedActivity: 'research' };
+  const [addForm, setAddForm] = useState<{ dayOfWeek: string; startTime: string; hours: number; location: string; plannedActivity: string }>({
+    dayOfWeek: 'monday',
+    startTime: '09:00',
+    hours: 0,
+    location: 'lab',
+    plannedActivity: 'research'
+  });
 
   const addBlockMutation = useMutation({
     mutationFn: async ({ scheduleId, blockData }: { scheduleId: string; blockData: any }) =>
@@ -679,11 +685,14 @@ export default function StudentDashboardViewer() {
                                 </div>
                                 <div className="text-sm">Total scheduled: {s.totalScheduledHours ?? 0}h</div>
                               </div>
-                              {s.id === currentScheduleId && scheduleBlocks && scheduleBlocks.length > 0 && (
+                              {s.id === currentScheduleId && (
                                 <div className="mt-3 space-y-2">
                                   <div className="text-sm font-medium">Schedule Details</div>
-                                  <div className="grid grid-cols-1 gap-2">
-                                    {scheduleBlocks.map((block: any) => (
+                                  {(!scheduleBlocks || scheduleBlocks.length === 0) ? (
+                                    <div className="text-sm text-muted-foreground">No schedule blocks yet</div>
+                                  ) : (
+                                    <div className="grid grid-cols-1 gap-2">
+                                      {scheduleBlocks.map((block: any) => (
                                       <div key={block.id} className="p-2 bg-muted rounded text-sm">
                                         {editingBlock && editingBlock.id === block.id ? (
                                           <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
@@ -718,18 +727,19 @@ export default function StudentDashboardViewer() {
                                           </>
                                         )}
                                       </div>
-                                    ))}
-                                  </div>
+                                      ))}
+                                    </div>
+                                  )}
                                   {(user?.role === 'admin' || user?.role === 'professor') && selectedWeek === getCurrentWeek() && (
                                     <div className="pt-2">
                                       <Button size="sm" variant="outline" onClick={() => setShowAddProfessorBlock(true)}>Add Block</Button>
                                       {showAddProfessorBlock && (
                                         <div className="mt-2 grid grid-cols-1 md:grid-cols-6 gap-2">
-                                          <Input placeholder="Day (monday)" onChange={(e) => (addForm.dayOfWeek = e.target.value)} />
-                                          <Input placeholder="Start (09:00)" onChange={(e) => (addForm.startTime = e.target.value)} />
-                                          <Input placeholder="Hours (e.g. 2.5)" onChange={(e) => (addForm.hours = parseFloat(e.target.value || '0'))} />
-                                          <Input placeholder="Location (lab)" onChange={(e) => (addForm.location = e.target.value)} />
-                                          <Input placeholder="Activity (research)" onChange={(e) => (addForm.plannedActivity = e.target.value)} />
+                                          <Input placeholder="Day (monday)" onChange={(e) => setAddForm(prev => ({ ...prev, dayOfWeek: e.target.value }))} />
+                                          <Input placeholder="Start (09:00)" onChange={(e) => setAddForm(prev => ({ ...prev, startTime: e.target.value }))} />
+                                          <Input placeholder="Hours (e.g. 2.5)" onChange={(e) => setAddForm(prev => ({ ...prev, hours: parseFloat(e.target.value || '0') }))} />
+                                          <Input placeholder="Location (lab)" onChange={(e) => setAddForm(prev => ({ ...prev, location: e.target.value }))} />
+                                          <Input placeholder="Activity (research)" onChange={(e) => setAddForm(prev => ({ ...prev, plannedActivity: e.target.value }))} />
                                           <div className="flex gap-2">
                                             <Button size="sm" onClick={() => {
                                               const end = computeEndTime(addForm.startTime, addForm.hours || 0);
