@@ -73,6 +73,13 @@ interface ScheduleValidation {
 }
 
 const DAYS_OF_WEEK = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+const START_TIMES = Array.from({ length: 10 }, (_, i) => {
+  const hour = 9 + i; // 9 -> 18
+  if (hour > 18) return null as unknown as string;
+  const hh = String(hour).padStart(2, '0');
+  return `${hh}:00`;
+}).filter(Boolean) as string[];
 const LOCATIONS = ['lab', 'remote', 'library', 'office', 'field'];
 const ACTIVITIES = ['research', 'analysis', 'writing', 'meeting', 'experiment', 'reading'];
 
@@ -86,13 +93,15 @@ export default function ScheduleSubmission() {
   const [editingSchedule, setEditingSchedule] = useState<WorkSchedule | null>(null);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
   const [showAddBlock, setShowAddBlock] = useState(false);
+  const [activeDay, setActiveDay] = useState<string>('monday');
+  const [durationHours, setDurationHours] = useState<number>(1);
   
   // Form states
   const [notes, setNotes] = useState("");
   const [newBlock, setNewBlock] = useState<Partial<ScheduleBlock>>({
     dayOfWeek: 'monday',
     startTime: '09:00',
-    endTime: '17:00',
+    endTime: '10:00',
     location: 'lab',
     plannedActivity: 'research'
   });
@@ -232,7 +241,9 @@ export default function ScheduleSubmission() {
       return;
     }
 
-    const duration = calculateDuration(newBlock.startTime!, newBlock.endTime!);
+    // If duration dropdown used, recompute endTime accordingly
+    const computedEnd = computeEndTime(newBlock.startTime!, durationHours);
+    const duration = calculateDuration(newBlock.startTime!, computedEnd);
     if (duration <= 0) {
       toast({
         title: "Invalid Time",
@@ -246,6 +257,8 @@ export default function ScheduleSubmission() {
       scheduleId: editingSchedule.id,
       blockData: {
         ...newBlock,
+        dayOfWeek: (newBlock.dayOfWeek || activeDay),
+        endTime: computedEnd,
         scheduleId: editingSchedule.id,
       }
     });
@@ -485,14 +498,17 @@ export default function ScheduleSubmission() {
                             <div>
                               <Label>Day of Week</Label>
                               <Select 
-                                value={newBlock.dayOfWeek} 
-                                onValueChange={(value) => setNewBlock({...newBlock, dayOfWeek: value})}
+                                value={activeDay}
+                                onValueChange={(value) => {
+                                  setActiveDay(value);
+                                  setNewBlock({ ...newBlock, dayOfWeek: value });
+                                }}
                               >
                                 <SelectTrigger className="mt-2">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {DAYS_OF_WEEK.map(day => (
+                                  {WEEKDAYS.map(day => (
                                     <SelectItem key={day} value={day}>
                                       {day.charAt(0).toUpperCase() + day.slice(1)}
                                     </SelectItem>
@@ -504,7 +520,7 @@ export default function ScheduleSubmission() {
                             <div>
                               <Label>Location</Label>
                               <Select 
-                                value={newBlock.location} 
+                                value={newBlock.location}
                                 onValueChange={(value) => setNewBlock({...newBlock, location: value})}
                               >
                                 <SelectTrigger className="mt-2">
@@ -520,33 +536,52 @@ export default function ScheduleSubmission() {
                               </Select>
                             </div>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <Label>Start Time</Label>
-                              <Input
-                                type="time"
+                              <Select
                                 value={newBlock.startTime}
-                                onChange={(e) => setNewBlock({...newBlock, startTime: e.target.value})}
-                                className="mt-2"
-                              />
+                                onValueChange={(value) => {
+                                  setNewBlock({ ...newBlock, startTime: value, endTime: computeEndTime(value, durationHours) });
+                                }}
+                              >
+                                <SelectTrigger className="mt-2">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {START_TIMES.map(t => (
+                                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
-                            
                             <div>
-                              <Label>End Time</Label>
-                              <Input
-                                type="time"
-                                value={newBlock.endTime}
-                                onChange={(e) => setNewBlock({...newBlock, endTime: e.target.value})}
-                                className="mt-2"
-                              />
+                              <Label>Duration (hours)</Label>
+                              <Select
+                                value={String(durationHours)}
+                                onValueChange={(value) => {
+                                  const hrs = parseInt(value, 10) || 1;
+                                  setDurationHours(hrs);
+                                  setNewBlock({ ...newBlock, endTime: computeEndTime(newBlock.startTime || '09:00', hrs) });
+                                }}
+                              >
+                                <SelectTrigger className="mt-2">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from({ length: 8 }, (_, i) => i + 1).map(h => (
+                                    <SelectItem key={h} value={String(h)}>{h}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
                           
                           <div>
                             <Label>Planned Activity</Label>
                             <Select 
-                              value={newBlock.plannedActivity} 
+                              value={newBlock.plannedActivity}
                               onValueChange={(value) => setNewBlock({...newBlock, plannedActivity: value})}
                             >
                               <SelectTrigger className="mt-2">
@@ -602,6 +637,14 @@ export default function ScheduleSubmission() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              {/* Weekday tabs */}
+              <Tabs value={activeDay} onValueChange={setActiveDay}>
+                <TabsList className="mb-2">
+                  {WEEKDAYS.map(day => (
+                    <TabsTrigger key={day} value={day} className="capitalize">{day}</TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
               {scheduleBlocks.length > 0 ? (
                 <div className="overflow-x-auto">
                   <Table>
@@ -616,7 +659,9 @@ export default function ScheduleSubmission() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {scheduleBlocks.map((block, index) => (
+                      {scheduleBlocks
+                        .filter(block => (block.dayOfWeek || '').toLowerCase() === activeDay)
+                        .map((block, index) => (
                         <TableRow key={block.id || index}>
                           <TableCell className="capitalize">{block.dayOfWeek}</TableCell>
                           <TableCell>{block.startTime} - {block.endTime}</TableCell>
@@ -706,4 +751,14 @@ function calculateDuration(startTime: string, endTime: string): number {
   const endTotalMinutes = endHour * 60 + endMinute;
   
   return (endTotalMinutes - startTotalMinutes) / 60;
+}
+
+function computeEndTime(startTime: string, hours: number): string {
+  const [h, m] = startTime.split(':').map(Number);
+  const startMinutes = h * 60 + m;
+  const endMinutes = startMinutes + Math.round(hours * 60);
+  const endH = Math.floor((endMinutes % (24 * 60)) / 60);
+  const endM = endMinutes % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(endH)}:${pad(endM)}`;
 }
