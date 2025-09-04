@@ -903,6 +903,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const block = await storage.createScheduleBlock(validatedData);
+      // Recalculate schedule total hours
+      await storage.recalcScheduleTotalHours(scheduleId);
       res.status(201).json(block);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -960,6 +962,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updated = await storage.updateScheduleBlock(blockId, updates);
       if (!updated) return res.status(404).json({ message: 'Block not found' });
+      // Recalculate schedule total hours
+      await storage.recalcScheduleTotalHours(scheduleId);
       return res.json(updated);
     } catch (error) {
       console.error("Error updating schedule block:", error);
@@ -985,6 +989,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const ok = await storage.deleteScheduleBlock(blockId);
       if (!ok) return res.status(404).json({ message: 'Block not found' });
+      // Recalculate schedule total hours
+      await storage.recalcScheduleTotalHours(scheduleId);
       return res.json({ ok: true });
     } catch (error) {
       console.error("Error deleting schedule block:", error);

@@ -156,6 +156,10 @@ export default function StudentDashboardViewer() {
       if (currentScheduleId) {
         queryClient.invalidateQueries({ queryKey: [`/api/work-schedules/${currentScheduleId}/blocks`] });
       }
+      if (selectedStudent?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/students/${selectedStudent.id}/schedules?weekStart=${selectedWeek}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/schedule-validation/${selectedStudent.id}?weekStart=${selectedWeek}`] });
+      }
       setShowAddProfessorBlock(false);
     }
   });
@@ -167,6 +171,10 @@ export default function StudentDashboardViewer() {
       if (currentScheduleId) {
         queryClient.invalidateQueries({ queryKey: [`/api/work-schedules/${currentScheduleId}/blocks`] });
       }
+      if (selectedStudent?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/students/${selectedStudent.id}/schedules?weekStart=${selectedWeek}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/schedule-validation/${selectedStudent.id}?weekStart=${selectedWeek}`] });
+      }
       setEditingBlock(null);
     }
   });
@@ -177,6 +185,10 @@ export default function StudentDashboardViewer() {
     onSuccess: () => {
       if (currentScheduleId) {
         queryClient.invalidateQueries({ queryKey: [`/api/work-schedules/${currentScheduleId}/blocks`] });
+      }
+      if (selectedStudent?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/students/${selectedStudent.id}/schedules?weekStart=${selectedWeek}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/schedule-validation/${selectedStudent.id}?weekStart=${selectedWeek}`] });
       }
     }
   });

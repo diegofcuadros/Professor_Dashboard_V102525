@@ -106,6 +106,7 @@ export interface IStorage {
   getUserWorkSchedules(userId: string, weekStart?: string): Promise<WorkSchedule[]>;
   approveWorkSchedule(scheduleId: string, approverId: string): Promise<WorkSchedule | undefined>;
   pruneOldSchedules(userId: string, keepFromMondayISO: string): Promise<number>;
+  recalcScheduleTotalHours(scheduleId: string): Promise<number>;
   
   // Schedule block operations
   createScheduleBlock(block: InsertScheduleBlock): Promise<ScheduleBlock>;
@@ -589,6 +590,22 @@ export class DatabaseStorage implements IStorage {
   async deleteScheduleBlock(id: string): Promise<boolean> {
     const result = await db.delete(scheduleBlocks).where(eq(scheduleBlocks.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  async recalcScheduleTotalHours(scheduleId: string): Promise<number> {
+    const blocks = await this.getScheduleBlocks(scheduleId);
+    let totalHours = 0;
+    for (const block of blocks) {
+      if (block.startTime && block.endTime) {
+        totalHours += this.calculateBlockDuration(block.startTime as any, block.endTime as any);
+      }
+    }
+    const rounded = parseFloat(totalHours.toFixed(1));
+    await db
+      .update(workSchedules)
+      .set({ totalScheduledHours: String(rounded), updatedAt: new Date() })
+      .where(eq(workSchedules.id, scheduleId));
+    return rounded;
   }
   
   // Schedule validation operations
