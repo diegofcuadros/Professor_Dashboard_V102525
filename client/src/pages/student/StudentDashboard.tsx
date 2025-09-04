@@ -294,27 +294,44 @@ export default function StudentDashboard() {
                         </div>
                       )}
                       
-                      {!notification.readAt && (
+                      <div className="flex gap-2 mt-3">
+                        {!notification.readAt && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                await fetch(`/api/notifications/${notification.id}/read`, {
+                                  method: 'PUT',
+                                  credentials: 'include'
+                                });
+                                window.location.reload();
+                              } catch (error) {
+                                console.error('Error marking notification as read:', error);
+                              }
+                            }}
+                          >
+                            Mark as Read
+                          </Button>
+                        )}
                         <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-3"
+                          variant="destructive" 
+                          size="sm"
                           onClick={async () => {
                             try {
-                              await fetch(`/api/notifications/${notification.id}/read`, {
-                                method: 'PUT',
+                              await fetch(`/api/notifications/${notification.id}`, {
+                                method: 'DELETE',
                                 credentials: 'include'
                               });
-                              // Refresh notifications
                               window.location.reload();
                             } catch (error) {
-                              console.error('Error marking notification as read:', error);
+                              console.error('Error deleting notification:', error);
                             }
                           }}
                         >
-                          Mark as Read
+                          Delete
                         </Button>
-                      )}
+                      </div>
                     </div>
                   ))
                 ) : (

@@ -77,6 +77,11 @@ export default function MyProjects() {
             Track your assigned research projects and progress
           </p>
         </div>
+        <Link href="/dashboard">
+          <Button variant="outline" size="sm">
+            Back to Dashboard
+          </Button>
+        </Link>
       </div>
 
       {/* Project Stats */}

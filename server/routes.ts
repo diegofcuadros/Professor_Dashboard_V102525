@@ -539,6 +539,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete a notification (owner only, or admin/professor)
+  app.delete('/api/notifications/:id', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const notificationId = req.params.id;
+
+      // For non-admin/professor, ensure the notification belongs to the user
+      if (currentUser.role !== 'admin' && currentUser.role !== 'professor') {
+        const usersNotifications = await storage.getUserNotifications(currentUser.id);
+        const exists = usersNotifications.some(n => n.id === notificationId);
+        if (!exists) return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const ok = await storage.deleteNotification(notificationId, currentUser.id);
+      if (!ok) return res.status(404).json({ message: 'Notification not found' });
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      res.status(500).json({ message: 'Failed to delete notification' });
+    }
+  });
+
   // AI Analytics Routes
   app.get('/api/ai/insights', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
@@ -905,6 +927,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const block = await storage.createScheduleBlock(validatedData);
       // Recalculate schedule total hours
       await storage.recalcScheduleTotalHours(scheduleId);
+
+      // Notify schedule owner about update
+      try {
+        const schedule = await storage.getWorkSchedule(scheduleId);
+        if (schedule?.userId) {
+          await notificationService.createNotification({
+            userId: schedule.userId,
+            title: 'Schedule updated',
+            message: `Added ${validatedData.dayOfWeek} ${validatedData.startTime}–${validatedData.endTime} (${validatedData.location || 'location'})`,
+            type: 'schedule_update',
+            relatedEntityType: 'schedule',
+            relatedEntityId: scheduleId,
+            metadata: { action: 'added', dayOfWeek: validatedData.dayOfWeek, startTime: validatedData.startTime, endTime: validatedData.endTime }
+          });
+        }
+      } catch (e) {
+        console.error('Failed to send schedule update notification (add):', e);
+      }
+
       res.status(201).json(block);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -964,6 +1005,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updated) return res.status(404).json({ message: 'Block not found' });
       // Recalculate schedule total hours
       await storage.recalcScheduleTotalHours(scheduleId);
+
+      // Notify schedule owner about update
+      try {
+        const schedule = await storage.getWorkSchedule(scheduleId);
+        if (schedule?.userId) {
+          await notificationService.createNotification({
+            userId: schedule.userId,
+            title: 'Schedule updated',
+            message: `Updated block to ${updates.dayOfWeek || 'same day'} ${updates.startTime || updated.startTime}–${updates.endTime || updated.endTime}`,
+            type: 'schedule_update',
+            relatedEntityType: 'schedule',
+            relatedEntityId: scheduleId,
+            metadata: { action: 'updated', ...updates }
+          });
+        }
+      } catch (e) {
+        console.error('Failed to send schedule update notification (edit):', e);
+      }
+
       return res.json(updated);
     } catch (error) {
       console.error("Error updating schedule block:", error);
@@ -991,6 +1051,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!ok) return res.status(404).json({ message: 'Block not found' });
       // Recalculate schedule total hours
       await storage.recalcScheduleTotalHours(scheduleId);
+
+      // Notify schedule owner about update
+      try {
+        const schedule = await storage.getWorkSchedule(scheduleId);
+        if (schedule?.userId) {
+          await notificationService.createNotification({
+            userId: schedule.userId,
+            title: 'Schedule updated',
+            message: 'Removed a schedule block.',
+            type: 'schedule_update',
+            relatedEntityType: 'schedule',
+            relatedEntityId: scheduleId,
+            metadata: { action: 'deleted', blockId }
+          });
+        }
+      } catch (e) {
+        console.error('Failed to send schedule update notification (delete):', e);
+      }
+
       return res.json({ ok: true });
     } catch (error) {
       console.error("Error deleting schedule block:", error);

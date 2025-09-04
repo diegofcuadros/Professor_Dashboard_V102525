@@ -89,6 +89,7 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   getUserNotifications(userId: string): Promise<Notification[]>;
   markNotificationAsRead(id: string): Promise<Notification | undefined>;
+  deleteNotification(id: string, userId: string): Promise<boolean>;
   
   // Analytics operations
   getUserMetrics(userId: string): Promise<any>;
@@ -418,6 +419,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notifications.id, id))
       .returning();
     return notification;
+  }
+
+  async deleteNotification(id: string, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(notifications)
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Analytics operations
