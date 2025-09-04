@@ -181,6 +181,19 @@ export default function StudentDashboardViewer() {
     }
   });
 
+  // Helper: compute end time by adding hours (decimal) to HH:MM start time
+  function computeEndTime(startTime: string, hours: number): string {
+    if (!startTime || !Number.isFinite(hours)) return startTime;
+    const [h, m] = startTime.split(':').map(Number);
+    const startMinutes = h * 60 + m;
+    const added = Math.round(hours * 60);
+    const endMinutes = startMinutes + added;
+    const endH = Math.floor((endMinutes % (24 * 60)) / 60);
+    const endM = endMinutes % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(endH)}:${pad(endM)}`;
+  }
+
   // Helpers for schedule comments
   const fetchComments = async (scheduleId: string) => apiRequestJson<any[]>("GET", `/api/schedules/${scheduleId}/comments`);
   const addComment = useMutation({
@@ -695,18 +708,21 @@ export default function StudentDashboardViewer() {
                                       </div>
                                     ))}
                                   </div>
-                                  {(user?.role === 'admin' || user?.role === 'professor') && (
+                                  {(user?.role === 'admin' || user?.role === 'professor') && selectedWeek === getCurrentWeek() && (
                                     <div className="pt-2">
                                       <Button size="sm" variant="outline" onClick={() => setShowAddProfessorBlock(true)}>Add Block</Button>
                                       {showAddProfessorBlock && (
-                                        <div className="mt-2 grid grid-cols-1 md:grid-cols-5 gap-2">
+                                        <div className="mt-2 grid grid-cols-1 md:grid-cols-6 gap-2">
                                           <Input placeholder="Day (monday)" onChange={(e) => (addForm.dayOfWeek = e.target.value)} />
                                           <Input placeholder="Start (09:00)" onChange={(e) => (addForm.startTime = e.target.value)} />
-                                          <Input placeholder="End (17:00)" onChange={(e) => (addForm.endTime = e.target.value)} />
+                                          <Input placeholder="Hours (e.g. 2.5)" onChange={(e) => (addForm.hours = parseFloat(e.target.value || '0'))} />
                                           <Input placeholder="Location (lab)" onChange={(e) => (addForm.location = e.target.value)} />
+                                          <Input placeholder="Activity (research)" onChange={(e) => (addForm.plannedActivity = e.target.value)} />
                                           <div className="flex gap-2">
-                                            <Input placeholder="Activity (research)" onChange={(e) => (addForm.plannedActivity = e.target.value)} />
-                                            <Button size="sm" onClick={() => addBlockMutation.mutate({ scheduleId: s.id, blockData: addForm })}>Save</Button>
+                                            <Button size="sm" onClick={() => {
+                                              const end = computeEndTime(addForm.startTime, addForm.hours || 0);
+                                              addBlockMutation.mutate({ scheduleId: s.id, blockData: { dayOfWeek: addForm.dayOfWeek, startTime: addForm.startTime, endTime: end, location: addForm.location, plannedActivity: addForm.plannedActivity } });
+                                            }}>Save</Button>
                                             <Button size="sm" variant="ghost" onClick={() => setShowAddProfessorBlock(false)}>Cancel</Button>
                                           </div>
                                         </div>
