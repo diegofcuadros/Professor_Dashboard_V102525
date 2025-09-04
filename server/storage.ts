@@ -1053,6 +1053,16 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  // Phase 2: fetch tasks that have reminders due
+  async getTasksWithDueReminders(now: Date = new Date()): Promise<ProjectTask[]> {
+    const results = await db
+      .select()
+      .from(projectTasks)
+      .where(sql`${projectTasks}.reminder_at IS NOT NULL AND ${projectTasks}.reminder_at <= ${now}`)
+      .orderBy(desc(projectTasks.reminderAt as any));
+    return results as unknown as ProjectTask[];
+  }
+
   async getTaskAssignees(taskId: string): Promise<User[]> {
     return await db
       .select({

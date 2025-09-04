@@ -1,6 +1,7 @@
 import { sendEmail } from './email';
 import { StudentEmailTemplates, ProfessorEmailTemplates, generateEmailFromTemplate } from './email-templates';
 import { storage } from './storage';
+import { notificationService as wsNotifications } from './websocket';
 import type { User, Project, ProjectTask, ProjectAssignment, WorkSchedule } from '../shared/schema';
 
 export class NotificationService {
@@ -32,6 +33,17 @@ export class NotificationService {
 
       await sendEmail(assignedUser.email, studentEmail.subject, studentEmail.html);
       console.log(`✅ Task assignment notification sent to ${assignedUser.email}`);
+
+      // Create in-app notification and push
+      await this.createNotification({
+        userId: assignedUserId,
+        title: `Task assigned: ${task.title}`,
+        message: `You have been assigned to task "${task.title}" in project "${project.name}"`,
+        type: 'task_assigned',
+        relatedEntityType: 'task',
+        relatedEntityId: task.id,
+        metadata: { projectId: project.id, priority: task.priority, dueDate: task.dueDate }
+      });
     } catch (error) {
       console.error('Error sending task assignment notification:', error);
     }
@@ -61,6 +73,16 @@ export class NotificationService {
         });
 
         await sendEmail(user.email, email.subject, email.html);
+        // In-app overdue alert
+        await this.createNotification({
+          userId: user.id,
+          title: `Task overdue: ${task.title}`,
+          message: `Task "${task.title}" in project "${project.name}" is overdue. Please review and update status.`,
+          type: 'task_overdue',
+          relatedEntityType: 'task',
+          relatedEntityId: task.id,
+          metadata: { projectId: project.id, priority: task.priority, dueDate: task.dueDate }
+        });
       }
 
       console.log(`✅ Overdue task notifications sent for task: ${task.title}`);
@@ -193,6 +215,17 @@ export class NotificationService {
 
       await sendEmail(user.email, email.subject, email.html);
       console.log(`✅ Project assignment notification sent to ${user.email}`);
+
+      // In-app project assignment notification
+      await this.createNotification({
+        userId,
+        title: `Project assigned: ${project.name}`,
+        message: `You have been assigned to project "${project.name}" as ${role || 'member'}.`,
+        type: 'project_assigned',
+        relatedEntityType: 'project',
+        relatedEntityId: projectId,
+        metadata: { role }
+      });
     } catch (error) {
       console.error('Error sending project assignment notification:', error);
     }
@@ -303,6 +336,19 @@ export class NotificationService {
       });
       
       console.log(`📬 Created in-app notification for user ${notificationData.userId}: ${notificationData.title}`);
+      // Push real-time notification to the user if connected
+      try {
+        wsNotifications?.notifyUser(notification.userId, {
+          id: notification.id,
+          title: notification.subject,
+          message: notification.content,
+          type: (notification.type as any) || 'info',
+          priority: notification.metadata?.priority || 'medium',
+          createdAt: notification.sentAt,
+        });
+      } catch (e) {
+        console.error('Failed to send WebSocket notification:', e);
+      }
       return notification;
     } catch (error) {
       console.error('Error creating in-app notification:', error);

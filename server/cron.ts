@@ -4,6 +4,7 @@ import { sendEmail } from './email';
 import { notificationService } from './notifications';
 import { aiNotificationService } from './ai-notifications';
 import { alertService } from './alertService';
+import { WebSocketService } from './websocket';
 
 export function setupWeeklyDigest() {
   const cronExpr = process.env.DIGEST_CRON || '0 8 * * MON';
@@ -172,6 +173,44 @@ export function setupAlertGeneration() {
       await alertService.generateAlerts();
     } catch (error) {
       console.error('❌ Error in automated alert generation:', error);
+    }
+  }, { timezone: 'UTC' });
+}
+
+// Phase 2: reminder dispatcher
+export function setupTaskReminderDispatcher() {
+  // Check every 2 minutes for due reminders
+  cron.schedule('*/2 * * * *', async () => {
+    try {
+      const dueTasks = await storage.getTasksWithDueReminders(new Date());
+      if (!dueTasks.length) return;
+
+      const ws = WebSocketService.getInstance();
+
+      for (const task of dueTasks) {
+        // find assignees for the task
+        const assignees = await storage.getTaskAssignees(task.id);
+        for (const user of assignees) {
+          // create in-app notification
+          await notificationService.createNotification({
+            userId: user.id,
+            title: `Task reminder: ${task.title}`,
+            message: `Reminder for task "${task.title}" due ${task.dueDate ? new Date(task.dueDate).toLocaleDateString() : ''}`,
+            type: 'reminder',
+            relatedEntityType: 'task',
+            relatedEntityId: task.id,
+            metadata: { priority: 'medium' }
+          });
+
+          // broadcast realtime update
+          ws.broadcastUpdate('task.reminder', { taskId: task.id, userId: user.id });
+        }
+
+        // clear reminder to avoid duplicate sends
+        await storage.setTaskReminder(task.id, null as unknown as Date, 'system');
+      }
+    } catch (err) {
+      console.error('❌ Task reminder dispatcher error:', err);
     }
   }, { timezone: 'UTC' });
 }
