@@ -737,11 +737,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: req.body.notes || undefined,
       };
 
+      // Enforce only current week creation
+      const now = new Date();
+      const monday = new Date(now.setDate(now.getDate() - now.getDay() + 1));
+      const currentMondayISO = monday.toISOString().split('T')[0];
+      if (payload.weekStartDate !== currentMondayISO) {
+        return res.status(400).json({ message: 'Can only create a schedule for the current week.' });
+      }
+
       // Validate the schedule data
       const validatedData = insertWorkScheduleSchema.parse(payload);
       
-      // Create the schedule first (validation will be done when schedule blocks are added)
+      // If schedule for current week already exists, return it (idempotent)
+      const existing = await storage.getUserWorkSchedules(currentUser.id, currentMondayISO);
+      if (existing && existing.length > 0) {
+        return res.status(200).json(existing[0]);
+      }
+
+      // Create the schedule (validation will be done when schedule blocks are added)
       const schedule = await storage.createWorkSchedule(validatedData);
+
+      // Prune older schedules: keep only past week and current week
+      const lastWeek = new Date(monday);
+      lastWeek.setDate(lastWeek.getDate() - 7);
+      const lastWeekMondayISO = lastWeek.toISOString().split('T')[0];
+      await storage.pruneOldSchedules(currentUser.id, lastWeekMondayISO);
       res.status(201).json(schedule);
     } catch (error) {
       if (error instanceof z.ZodError) {

@@ -336,13 +336,13 @@ export default function ScheduleSubmission() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={getCurrentWeek()}>This Week</SelectItem>
-              <SelectItem value={getNextWeek()}>Next Week</SelectItem>
-              <SelectItem value={getWeekAfter()}>Week After</SelectItem>
+              <SelectItem value={getCurrentWeek()}>Current Week</SelectItem>
+              <SelectItem value={getPastWeek()}>Past Week</SelectItem>
             </SelectContent>
           </Select>
           
-          {!currentSchedule && (
+          {/* Only allow creating schedule when viewing Current Week */}
+          {!currentSchedule && selectedWeek === getCurrentWeek() && (
             <Dialog open={showCreateSchedule} onOpenChange={setShowCreateSchedule}>
               <DialogTrigger asChild>
                 <Button>
@@ -467,7 +467,7 @@ export default function ScheduleSubmission() {
                 Week of {new Date(currentSchedule.weekStartDate).toLocaleDateString()}
               </CardTitle>
               <div className="flex space-x-2">
-                {currentSchedule.status === 'draft' && (
+                {currentSchedule.status === 'draft' && selectedWeek === getCurrentWeek() && (
                   <>
                     <Dialog open={showAddBlock} onOpenChange={setShowAddBlock}>
                       <DialogTrigger asChild>
@@ -624,7 +624,7 @@ export default function ScheduleSubmission() {
                           <TableCell className="capitalize">{block.location}</TableCell>
                           <TableCell className="capitalize">{block.plannedActivity}</TableCell>
                           <TableCell>
-                            {currentSchedule?.status === 'draft' && (
+                            {currentSchedule?.status === 'draft' && selectedWeek === getCurrentWeek() && (
                               <div className="flex space-x-1">
                                 <Button size="sm" variant="outline">
                                   <Edit className="h-3 w-3" />
@@ -691,17 +691,10 @@ function getCurrentWeek(): string {
   return monday.toISOString().split('T')[0];
 }
 
-function getNextWeek(): string {
+function getPastWeek(): string {
   const today = new Date();
-  const nextWeek = new Date(today.setDate(today.getDate() + 7));
-  const monday = new Date(nextWeek.setDate(nextWeek.getDate() - nextWeek.getDay() + 1));
-  return monday.toISOString().split('T')[0];
-}
-
-function getWeekAfter(): string {
-  const today = new Date();
-  const weekAfter = new Date(today.setDate(today.getDate() + 14));
-  const monday = new Date(weekAfter.setDate(weekAfter.getDate() - weekAfter.getDay() + 1));
+  const lastWeek = new Date(today.setDate(today.getDate() - 7));
+  const monday = new Date(lastWeek.setDate(lastWeek.getDate() - lastWeek.getDay() + 1));
   return monday.toISOString().split('T')[0];
 }
 

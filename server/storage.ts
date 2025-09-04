@@ -105,6 +105,7 @@ export interface IStorage {
   getAllWorkSchedules(weekStart?: string): Promise<WorkSchedule[]>;
   getUserWorkSchedules(userId: string, weekStart?: string): Promise<WorkSchedule[]>;
   approveWorkSchedule(scheduleId: string, approverId: string): Promise<WorkSchedule | undefined>;
+  pruneOldSchedules(userId: string, keepFromMondayISO: string): Promise<number>;
   
   // Schedule block operations
   createScheduleBlock(block: InsertScheduleBlock): Promise<ScheduleBlock>;
@@ -550,6 +551,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(workSchedules.id, scheduleId))
       .returning();
     return schedule;
+  }
+
+  async pruneOldSchedules(userId: string, keepFromMondayISO: string): Promise<number> {
+    // delete schedules older than the previous week Monday (keep only past week and current week)
+    const result = await db
+      .delete(workSchedules)
+      .where(sql`${workSchedules}.user_id = ${userId} AND ${workSchedules}.week_start_date < ${keepFromMondayISO}`);
+    // drizzle returns undefined rowCount for deletes sometimes; return 0 if unavailable
+    // @ts-ignore
+    return result?.rowCount ?? 0;
   }
   
   // Schedule block operations

@@ -110,7 +110,18 @@ export default function StudentDashboardViewer() {
     return format(monday, 'yyyy-MM-dd');
   };
 
-  const [selectedWeek] = useState<string>(getCurrentWeek());
+  const getPastWeek = () => {
+    const now = new Date();
+    now.setDate(now.getDate() - 7);
+    const day = now.getDay();
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+    return format(monday, 'yyyy-MM-dd');
+  };
+
+  const [selectedWeek, setSelectedWeek] = useState<string>(getCurrentWeek());
 
   const { data: studentSchedules, isLoading: schedulesLoading } = useQuery<any[]>({
     queryKey: selectedStudent?.id ? [`/api/students/${selectedStudent.id}/schedules?weekStart=${selectedWeek}`] : ["/noop"],
@@ -576,7 +587,18 @@ export default function StudentDashboardViewer() {
                 <TabsContent value="schedule">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Schedule Information</CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle>Schedule Information</CardTitle>
+                        <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={getCurrentWeek()}>Current Week</SelectItem>
+                            <SelectItem value={getPastWeek()}>Past Week</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       {schedulesLoading ? (
