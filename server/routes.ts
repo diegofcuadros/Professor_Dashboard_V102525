@@ -935,6 +935,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update a schedule block (professor/admin or owner)
+  app.put('/api/work-schedules/:scheduleId/blocks/:blockId', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const scheduleId = req.params.scheduleId;
+      const blockId = req.params.blockId;
+
+      // Verify access to schedule (owner or professor/admin)
+      if (currentUser.role !== 'admin' && currentUser.role !== 'professor') {
+        const schedules = await storage.getUserWorkSchedules(currentUser.id);
+        const ownsSchedule = schedules.some(s => s.id === scheduleId);
+        if (!ownsSchedule) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+
+      // Only allow updating known fields
+      const updates: any = {};
+      const allowed = ['dayOfWeek','startTime','endTime','location','plannedActivity','projectId'];
+      for (const key of allowed) {
+        if (req.body[key] !== undefined) updates[key] = req.body[key];
+      }
+
+      const updated = await storage.updateScheduleBlock(blockId, updates);
+      if (!updated) return res.status(404).json({ message: 'Block not found' });
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating schedule block:", error);
+      res.status(500).json({ message: "Failed to update schedule block" });
+    }
+  });
+
+  // Delete a schedule block (professor/admin or owner)
+  app.delete('/api/work-schedules/:scheduleId/blocks/:blockId', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const scheduleId = req.params.scheduleId;
+      const blockId = req.params.blockId;
+
+      // Verify access to schedule (owner or professor/admin)
+      if (currentUser.role !== 'admin' && currentUser.role !== 'professor') {
+        const schedules = await storage.getUserWorkSchedules(currentUser.id);
+        const ownsSchedule = schedules.some(s => s.id === scheduleId);
+        if (!ownsSchedule) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+
+      const ok = await storage.deleteScheduleBlock(blockId);
+      if (!ok) return res.status(404).json({ message: 'Block not found' });
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error("Error deleting schedule block:", error);
+      res.status(500).json({ message: "Failed to delete schedule block" });
+    }
+  });
+
   // Schedule Compliance Routes
   app.get('/api/schedule-compliance', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {

@@ -144,6 +144,43 @@ export default function StudentDashboardViewer() {
     enabled: !!currentScheduleId,
   });
 
+  // Professor edit state for blocks
+  const [editingBlock, setEditingBlock] = useState<any | null>(null);
+  const [showAddProfessorBlock, setShowAddProfessorBlock] = useState(false);
+  const addForm: any = { dayOfWeek: 'monday', startTime: '09:00', endTime: '17:00', location: 'lab', plannedActivity: 'research' };
+
+  const addBlockMutation = useMutation({
+    mutationFn: async ({ scheduleId, blockData }: { scheduleId: string; blockData: any }) =>
+      apiRequestJson("POST", `/api/work-schedules/${scheduleId}/blocks`, blockData),
+    onSuccess: () => {
+      if (currentScheduleId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/work-schedules/${currentScheduleId}/blocks`] });
+      }
+      setShowAddProfessorBlock(false);
+    }
+  });
+
+  const updateBlockMutation = useMutation({
+    mutationFn: async ({ scheduleId, blockId, updates }: { scheduleId: string; blockId: string; updates: any }) =>
+      apiRequestJson("PUT", `/api/work-schedules/${scheduleId}/blocks/${blockId}`, updates),
+    onSuccess: () => {
+      if (currentScheduleId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/work-schedules/${currentScheduleId}/blocks`] });
+      }
+      setEditingBlock(null);
+    }
+  });
+
+  const deleteBlockMutation = useMutation({
+    mutationFn: async ({ scheduleId, blockId }: { scheduleId: string; blockId: string }) =>
+      apiRequestJson("DELETE", `/api/work-schedules/${scheduleId}/blocks/${blockId}`),
+    onSuccess: () => {
+      if (currentScheduleId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/work-schedules/${currentScheduleId}/blocks`] });
+      }
+    }
+  });
+
   // Helpers for schedule comments
   const fetchComments = async (scheduleId: string) => apiRequestJson<any[]>("GET", `/api/schedules/${scheduleId}/comments`);
   const addComment = useMutation({
@@ -623,17 +660,59 @@ export default function StudentDashboardViewer() {
                                   <div className="grid grid-cols-1 gap-2">
                                     {scheduleBlocks.map((block: any) => (
                                       <div key={block.id} className="p-2 bg-muted rounded text-sm">
-                                        <div className="flex justify-between items-start">
-                                          <div>
-                                            <span className="font-medium">{block.dayOfWeek}</span>
-                                            <span className="ml-2">{block.startTime} - {block.endTime}</span>
+                                        {editingBlock && editingBlock.id === block.id ? (
+                                          <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                                            <Input defaultValue={block.dayOfWeek} onChange={(e) => (editingBlock.dayOfWeek = e.target.value)} />
+                                            <Input defaultValue={block.startTime} onChange={(e) => (editingBlock.startTime = e.target.value)} />
+                                            <Input defaultValue={block.endTime} onChange={(e) => (editingBlock.endTime = e.target.value)} />
+                                            <Input defaultValue={block.location} onChange={(e) => (editingBlock.location = e.target.value)} />
+                                            <div className="flex gap-2">
+                                              <Input defaultValue={block.plannedActivity} onChange={(e) => (editingBlock.plannedActivity = e.target.value)} />
+                                              <Button size="sm" onClick={() => updateBlockMutation.mutate({ scheduleId: s.id, blockId: block.id, updates: editingBlock })}>Save</Button>
+                                              <Button size="sm" variant="ghost" onClick={() => setEditingBlock(null)}>Cancel</Button>
+                                            </div>
                                           </div>
-                                          <Badge variant="outline" className="text-xs">{block.location || 'No location'}</Badge>
-                                        </div>
-                                        <div className="mt-1 text-muted-foreground">{block.plannedActivity || 'No activity specified'}</div>
+                                        ) : (
+                                          <>
+                                            <div className="flex justify-between items-start">
+                                              <div>
+                                                <span className="font-medium">{block.dayOfWeek}</span>
+                                                <span className="ml-2">{block.startTime} - {block.endTime}</span>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="text-xs">{block.location || 'No location'}</Badge>
+                                                {(user?.role === 'admin' || user?.role === 'professor') && (
+                                                  <div className="flex gap-1">
+                                                    <Button size="sm" variant="outline" onClick={() => setEditingBlock(block)}>Edit</Button>
+                                                    <Button size="sm" variant="outline" onClick={() => deleteBlockMutation.mutate({ scheduleId: s.id, blockId: block.id })}>Delete</Button>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="mt-1 text-muted-foreground">{block.plannedActivity || 'No activity specified'}</div>
+                                          </>
+                                        )}
                                       </div>
                                     ))}
                                   </div>
+                                  {(user?.role === 'admin' || user?.role === 'professor') && (
+                                    <div className="pt-2">
+                                      <Button size="sm" variant="outline" onClick={() => setShowAddProfessorBlock(true)}>Add Block</Button>
+                                      {showAddProfessorBlock && (
+                                        <div className="mt-2 grid grid-cols-1 md:grid-cols-5 gap-2">
+                                          <Input placeholder="Day (monday)" onChange={(e) => (addForm.dayOfWeek = e.target.value)} />
+                                          <Input placeholder="Start (09:00)" onChange={(e) => (addForm.startTime = e.target.value)} />
+                                          <Input placeholder="End (17:00)" onChange={(e) => (addForm.endTime = e.target.value)} />
+                                          <Input placeholder="Location (lab)" onChange={(e) => (addForm.location = e.target.value)} />
+                                          <div className="flex gap-2">
+                                            <Input placeholder="Activity (research)" onChange={(e) => (addForm.plannedActivity = e.target.value)} />
+                                            <Button size="sm" onClick={() => addBlockMutation.mutate({ scheduleId: s.id, blockData: addForm })}>Save</Button>
+                                            <Button size="sm" variant="ghost" onClick={() => setShowAddProfessorBlock(false)}>Cancel</Button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                               <CommentsSection
