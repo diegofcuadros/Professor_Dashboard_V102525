@@ -34,6 +34,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 
 interface ScheduleCompliance {
+  scheduleId: string;
   userId: string;
   userName: string;
   weekStartDate: string;
@@ -76,12 +77,32 @@ export default function ScheduleCompliance() {
         title: "Success",
         description: "Schedule approved successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/schedule-compliance"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/schedule-compliance?weekStart=${selectedWeek}`] });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
         description: error.message || "Failed to approve schedule",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectScheduleMutation = useMutation({
+    mutationFn: async ({ scheduleId, reason }: { scheduleId: string; reason?: string }) => {
+      return await apiRequest("PUT", `/api/work-schedules/${scheduleId}/reject`, { reason: reason || 'No reason provided' });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Rejected",
+        description: "Schedule rejected",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/schedule-compliance?weekStart=${selectedWeek}`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reject schedule",
         variant: "destructive",
       });
     },
@@ -321,15 +342,7 @@ export default function ScheduleCompliance() {
                         <>
                           <Button 
                             size="sm" 
-                            onClick={() => {
-                              // For now, we'll use a placeholder since we need the actual schedule ID
-                              // In a real implementation, we'd fetch this from the compliance data
-                              toast({
-                                title: "Feature Coming Soon",
-                                description: "Schedule approval integration is being completed",
-                                variant: "default",
-                              });
-                            }}
+                            onClick={() => approveScheduleMutation.mutate(item.scheduleId)}
                             disabled={approveScheduleMutation.isPending}
                           >
                             <CheckCircle className="h-3 w-3 mr-1" />
@@ -338,13 +351,7 @@ export default function ScheduleCompliance() {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => {
-                              toast({
-                                title: "Feature Coming Soon",
-                                description: "Schedule rejection workflow is being completed",
-                                variant: "default",
-                              });
-                            }}
+                            onClick={() => rejectScheduleMutation.mutate({ scheduleId: item.scheduleId })}
                           >
                             <XCircle className="h-3 w-3 mr-1" />
                             Reject

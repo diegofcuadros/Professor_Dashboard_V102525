@@ -720,6 +720,7 @@ export class DatabaseStorage implements IStorage {
   
   async getScheduleCompliance(userId?: string, weekStart?: string): Promise<any> {
     let query = db.select({
+      scheduleId: workSchedules.id,
       userId: workSchedules.userId,
       weekStartDate: workSchedules.weekStartDate,
       totalScheduledHours: workSchedules.totalScheduledHours,
@@ -744,6 +745,7 @@ export class DatabaseStorage implements IStorage {
     const minWeeklyHours = parseInt(process.env.MINIMUM_WEEKLY_HOURS || '20');
     
     return schedules.map(schedule => ({
+      scheduleId: schedule.scheduleId,
       userId: schedule.userId,
       userName: `${schedule.firstName} ${schedule.lastName}`,
       weekStartDate: schedule.weekStartDate,
