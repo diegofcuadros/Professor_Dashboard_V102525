@@ -11,6 +11,11 @@ import MyProjects from "./MyProjects";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Clock, Projector, Calendar, TrendingUp, Plus, BookOpen, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Progress } from "@/components/ui/progress";
 
 const baseStudentSidebarItems = [
@@ -27,6 +32,13 @@ export default function StudentDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState('dashboard');
+  const queryClient = useQueryClient();
+  // Compose/reply modal state
+  const [showCompose, setShowCompose] = useState(false);
+  const [recipientId, setRecipientId] = useState<string>("");
+  const [subject, setSubject] = useState<string>("");
+  const [body, setBody] = useState<string>("");
+  const [messageableUsers, setMessageableUsers] = useState<Array<{ id: string; firstName?: string; lastName?: string; email: string; role?: string }>>([]);
 
   const { data: userMetrics, isLoading: metricsLoading, error: metricsError } = useQuery({
     queryKey: [`/api/analytics/user/${user?.id}`],
@@ -44,6 +56,38 @@ export default function StudentDashboard() {
     queryKey: [`/api/notifications/user/${user?.id}`],
     retry: false,
     enabled: !!user?.id,
+  });
+
+  // Fetch messageable users when opening compose
+  async function ensureMessageableLoaded() {
+    if (messageableUsers.length > 0) return;
+    try {
+      const res = await fetch(`/api/users/messageable`, { credentials: 'include' });
+      const data = await res.json();
+      setMessageableUsers(data || []);
+    } catch (e) {
+      console.error('Failed to load recipients:', e);
+    }
+  }
+
+  const sendMessage = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/messages/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ recipientId, subject, message: body })
+      });
+      if (!res.ok) throw new Error('Failed to send message');
+      return res.json();
+    },
+    onSuccess: () => {
+      setShowCompose(false);
+      setRecipientId(""); setSubject(""); setBody("");
+      queryClient.invalidateQueries({ queryKey: [`/api/notifications/user/${user?.id}`] });
+      toast({ title: 'Message sent' });
+    },
+    onError: (e: any) => toast({ title: 'Failed to send', description: e?.message || 'Please try again', variant: 'destructive' })
   });
 
   // Handle unauthorized errors
@@ -257,9 +301,17 @@ export default function StudentDashboard() {
 
           {activeSection === 'messages' && (
             <div className="p-6">
-              <div className="mb-6">
+              <div className="mb-6 flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-foreground mb-2">Messages</h2>
-                <p className="text-muted-foreground">Your messages and notifications from professors</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-muted-foreground hidden md:block">Your messages and notifications from professors</p>
+                  <Button
+                    size="sm"
+                    onClick={async () => { setShowCompose(true); await ensureMessageableLoaded(); }}
+                  >
+                    New Message
+                  </Button>
+                </div>
               </div>
               
               <div className="space-y-4">
@@ -314,6 +366,22 @@ export default function StudentDashboard() {
                             Mark as Read
                           </Button>
                         )}
+                        {notification.type === 'direct_message' && notification.metadata?.fromUserId && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              await ensureMessageableLoaded();
+                              setRecipientId(notification.metadata.fromUserId);
+                              const subj = notification.subject || notification.title || 'Re:';
+                              setSubject(subj.startsWith('Re:') ? subj : `Re: ${subj}`);
+                              setBody("");
+                              setShowCompose(true);
+                            }}
+                          >
+                            Reply
+                          </Button>
+                        )}
                         <Button 
                           variant="destructive" 
                           size="sm"
@@ -340,6 +408,45 @@ export default function StudentDashboard() {
                   </div>
                 )}
               </div>
+
+              <Dialog open={showCompose} onOpenChange={setShowCompose}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>New Message</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm text-muted-foreground">Recipient</label>
+                      <Select value={recipientId} onValueChange={setRecipientId}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Select recipient" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {messageableUsers.map(u => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {(u.firstName || u.lastName) ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : u.email} {u.role ? `(${u.role})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">Subject</label>
+                      <Input className="mt-1" value={subject} onChange={(e) => setSubject(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">Message</label>
+                      <Textarea className="mt-1" rows={5} value={body} onChange={(e) => setBody(e.target.value)} />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowCompose(false)}>Cancel</Button>
+                    <Button onClick={() => sendMessage.mutate()} disabled={!recipientId || !subject.trim() || !body.trim() || sendMessage.isPending}>
+                      {sendMessage.isPending ? 'Sending…' : 'Send'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 
@@ -355,7 +462,7 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {(activeSection !== 'dashboard' && activeSection !== 'projects' && activeSection !== 'schedule') && (
+          {(activeSection !== 'dashboard' && activeSection !== 'projects' && activeSection !== 'schedule' && activeSection !== 'messages') && (
             <div className="p-6">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-foreground mb-2 capitalize">
