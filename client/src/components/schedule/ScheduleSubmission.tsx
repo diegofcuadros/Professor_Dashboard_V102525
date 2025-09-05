@@ -506,6 +506,19 @@ export default function ScheduleSubmission() {
                 Week of {new Date(currentSchedule.weekStartDate).toLocaleDateString()}
               </CardTitle>
               <div className="flex space-x-2">
+                {currentSchedule.status !== 'draft' && selectedWeek === getCurrentWeek() && (
+                  <Button size="sm" variant="outline" onClick={async () => {
+                    try {
+                      await apiRequest('PUT', `/api/work-schedules/${currentSchedule.id}/revise`, {});
+                      // refresh blocks
+                      await refetchBlocks();
+                      queryClient.invalidateQueries({ queryKey: ["/api/work-schedules"] });
+                      queryClient.invalidateQueries({ queryKey: ["/api/schedule-validation"] });
+                    } catch (e) {
+                      console.error('Failed to revise schedule:', e);
+                    }
+                  }}>Revise Schedule</Button>
+                )}
                 {currentSchedule.status === 'draft' && selectedWeek === getCurrentWeek() && (
                   <>
                     <Dialog open={showAddBlock} onOpenChange={setShowAddBlock}>

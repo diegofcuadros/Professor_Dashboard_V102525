@@ -794,6 +794,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Revise an existing schedule: move back to draft to allow edits
+  app.put('/api/work-schedules/:id/revise', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const scheduleId = req.params.id;
+
+      // Load schedule and verify ownership or role
+      const schedules = await storage.getUserWorkSchedules(currentUser.id);
+      const ownsSchedule = schedules.some(s => s.id === scheduleId);
+      if (!ownsSchedule && currentUser.role !== 'admin' && currentUser.role !== 'professor') {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const [updated] = await db
+        .update(workSchedules)
+        .set({ status: 'draft', approved: false, approvedBy: null, approvedAt: null, updatedAt: new Date() })
+        .where(eq(workSchedules.id, scheduleId))
+        .returning();
+
+      if (!updated) return res.status(404).json({ message: 'Schedule not found' });
+
+      // Notify the schedule owner
+      try {
+        const ownerId = updated.userId;
+        await notificationService.createNotification({
+          userId: ownerId,
+          title: 'Schedule moved to draft',
+          message: 'Your weekly schedule is now editable again.',
+          type: 'schedule_update',
+          relatedEntityType: 'schedule',
+          relatedEntityId: scheduleId,
+          metadata: { action: 'revise' }
+        });
+      } catch (e) {
+        console.error('Failed to send revise notification:', e);
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Error revising work schedule:', error);
+      res.status(500).json({ message: 'Failed to revise work schedule' });
+    }
+  });
+
   app.put('/api/work-schedules/:id/approve', isAuthenticated, requireRole(['admin', 'professor']), async (req, res) => {
     try {
       const currentUser = req.user!;
