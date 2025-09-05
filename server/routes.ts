@@ -31,6 +31,7 @@ import { notificationService } from './notifications';
 import { alertService } from './alertService';
 import { aiNotificationService } from './ai-notifications';
 import { progressMonitor } from './progress-monitor';
+import { NotificationService } from "./notifications";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint for Docker
@@ -2042,6 +2043,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating alerts manually:", error);
       res.status(500).json({ message: "Failed to generate alerts" });
+    }
+  });
+
+  // Professor Dashboard
+  app.get('/admin/dashboard/attention-items', isAuthenticated, requireRole('professor'), async (c) => {
+    try {
+      const items = await storage.getAttentionItems();
+      return c.json(items);
+    } catch (error: any) {
+      console.error("Error fetching attention items:", error);
+      return c.json({ message: "Failed to fetch attention items", error: error.message }, 500);
+    }
+  });
+
+  app.get('/admin/dashboard/upcoming-deadlines', isAuthenticated, requireRole('professor'), async (c) => {
+    try {
+      const deadlines = await storage.getUpcomingDeadlines();
+      return c.json(deadlines);
+    } catch (error: any) {
+      console.error("Error fetching upcoming deadlines:", error);
+      return c.json({ message: "Failed to fetch upcoming deadlines", error: error.message }, 500);
+    }
+  });
+
+  // Existing admin routes for team task oversight
+  app.get('/admin/tasks/overview', isAuthenticated, requireRole('professor'), async (c) => {
+    try {
+      const filters = c.req.query;
+      
+      // Convert query params to filter object
+      const taskFilter: any = {};
+      
+      if (filters.status) {
+        taskFilter.status = Array.isArray(filters.status) ? filters.status : [filters.status];
+      }
+      
+      if (filters.riskLevel) {
+        taskFilter.riskLevel = Array.isArray(filters.riskLevel) ? filters.riskLevel : [filters.riskLevel];
+      }
+      
+      if (filters.studentIds) {
+        taskFilter.studentIds = Array.isArray(filters.studentIds) ? filters.studentIds : [filters.studentIds];
+      }
+      
+      if (filters.projectIds) {
+        taskFilter.projectIds = Array.isArray(filters.projectIds) ? filters.projectIds : [filters.projectIds];
+      }
+      
+      if (filters.priorities) {
+        taskFilter.priorities = Array.isArray(filters.priorities) ? filters.priorities : [filters.priorities];
+      }
+      
+      if (filters.progressMin || filters.progressMax) {
+        taskFilter.progressRange = {
+          min: parseInt(filters.progressMin as string) || 0,
+          max: parseInt(filters.progressMax as string) || 100
+        };
+      }
+      
+      if (filters.needsAttention === 'true') {
+        taskFilter.needsAttention = true;
+      }
+      
+      if (filters.recentlyActive === 'true') {
+        taskFilter.recentlyActive = true;
+      }
+      
+      const tasks = await storage.getAllTeamTasks(taskFilter);
+      return c.json(tasks);
+    } catch (error) {
+      console.error("Error fetching team tasks overview:", error);
+      return c.json({ message: "Failed to fetch team tasks overview", error: error.message }, 500);
     }
   });
 

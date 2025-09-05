@@ -66,6 +66,7 @@ import {
 import bcrypt from "bcrypt";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { format } from "date-fns";
 
 // Interface for storage operations
 export interface IStorage {
@@ -211,6 +212,10 @@ export interface IStorage {
   checkProjectRisks(): Promise<Alert[]>;
   checkVelocityDrops(): Promise<Alert[]>;
   checkTasksBlocked(): Promise<Alert[]>;
+
+  // Professor Dashboard
+  getAttentionItems(): Promise<any[]>;
+  getUpcomingDeadlines(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2075,6 +2080,145 @@ export class DatabaseStorage implements IStorage {
     }
 
     return generatedAlerts;
+  }
+
+  // Professor Dashboard
+  async getAttentionItems(): Promise<any[]> {
+    const attentionItems: any[] = [];
+
+    // 1. Schedules needing approval
+    const schedulesForApproval = await db
+      .select({
+        id: workSchedules.id,
+        weekStartDate: workSchedules.weekStartDate,
+        status: workSchedules.status,
+        studentId: users.id,
+        studentName: sql<string>`${users.firstName} || ' ' || ${users.lastName}`,
+      })
+      .from(workSchedules)
+      .innerJoin(users, eq(workSchedules.userId, users.id))
+      .where(eq(workSchedules.status, 'submitted'));
+
+    schedulesForApproval.forEach(schedule => {
+      attentionItems.push({
+        type: 'schedule_approval',
+        id: `schedule-${schedule.id}`,
+        title: `Schedule for ${schedule.studentName}`,
+        subtitle: `Week of ${format(new Date(schedule.weekStartDate), 'MMM d, yyyy')}`,
+        link: `/admin/compliance`, // Or a more specific link if available
+        studentId: schedule.studentId,
+      });
+    });
+
+    // 2. Overdue tasks
+    const now = new Date();
+    const overdueTasks = await db
+      .select({
+        id: projectTasks.id,
+        title: projectTasks.title,
+        dueDate: projectTasks.dueDate,
+        studentName: sql<string>`${users.firstName} || ' ' || ${users.lastName}`,
+        projectName: projects.name,
+        studentId: users.id,
+      })
+      .from(projectTasks)
+      .innerJoin(taskAssignments, and(eq(projectTasks.id, taskAssignments.taskId), eq(taskAssignments.isActive, true)))
+      .innerJoin(users, eq(taskAssignments.userId, users.id))
+      .innerJoin(projects, eq(projectTasks.projectId, projects.id))
+      .where(and(
+        sql`${projectTasks.dueDate} < ${now}`,
+        sql`${projectTasks.status} != 'completed'`
+      ));
+      
+    overdueTasks.forEach(task => {
+      attentionItems.push({
+        type: 'task_overdue',
+        id: `task-${task.id}`,
+        title: `Overdue: ${task.title}`,
+        subtitle: `Assigned to ${task.studentName} in project ${task.projectName}`,
+        link: `/admin/tasks`, // Or project-specific page
+        studentId: task.studentId,
+      });
+    });
+
+    // 3. Inactive students (no activity in last 3 days)
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    
+    const activeStudents = await db
+      .selectDistinct({ id: users.id })
+      .from(users)
+      .innerJoin(taskActivity, eq(users.id, taskActivity.userId))
+      .where(sql`${taskActivity.createdAt} >= ${threeDaysAgo}`);
+      
+    const activeStudentIds = activeStudents.map(s => s.id);
+
+    const allStudents = await db
+      .select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
+      .from(users)
+      .where(eq(users.role, 'student'));
+      
+    const inactiveStudents = allStudents.filter(student => !activeStudentIds.includes(student.id));
+
+    inactiveStudents.forEach(student => {
+      attentionItems.push({
+        type: 'student_inactive',
+        id: `student-${student.id}`,
+        title: `Inactive: ${student.firstName} ${student.lastName}`,
+        subtitle: 'No task activity in the last 3 days',
+        link: `/admin/students/${student.id}`,
+        studentId: student.id,
+      });
+    });
+    
+    return attentionItems;
+  }
+
+  async getUpcomingDeadlines(): Promise<any[]> {
+    const now = new Date();
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(now.getDate() + 7);
+
+    const tasks = await db
+      .select({
+        id: projectTasks.id,
+        title: projectTasks.title,
+        dueDate: projectTasks.dueDate,
+        type: sql<string>`'task'`,
+        studentName: sql<string>`${users.firstName} || ' ' || ${users.lastName}`,
+        projectName: projects.name,
+      })
+      .from(projectTasks)
+      .innerJoin(taskAssignments, and(eq(projectTasks.id, taskAssignments.taskId), eq(taskAssignments.isActive, true)))
+      .innerJoin(users, eq(taskAssignments.userId, users.id))
+      .innerJoin(projects, eq(projectTasks.projectId, projects.id))
+      .where(and(
+        sql`${projectTasks.dueDate} >= ${now}`,
+        sql`${projectTasks.dueDate} <= ${sevenDaysFromNow}`,
+        sql`${projectTasks.status} != 'completed'`
+      ));
+
+    const milestones = await db
+      .select({
+        id: projectMilestones.id,
+        title: projectMilestones.title,
+        dueDate: projectMilestones.dueDate,
+        type: sql<string>`'milestone'`,
+        studentName: sql<string>`'Team'`, // Milestones are project-level
+        projectName: projects.name,
+      })
+      .from(projectMilestones)
+      .innerJoin(projects, eq(projectMilestones.projectId, projects.id))
+      .where(and(
+        sql`${projectMilestones.dueDate} >= ${now}`,
+        sql`${projectMilestones.dueDate} <= ${sevenDaysFromNow}`,
+        sql`${projectMilestones.status} != 'completed'`
+      ));
+
+    const combined = [...tasks, ...milestones];
+    
+    // @ts-ignore
+    return combined.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
   }
 }
 

@@ -11,7 +11,9 @@ import {
   ListTodo,
   Lightbulb,
   Microscope,
-  UserCheck
+  UserCheck,
+  LayoutDashboard,
+  GraduationCap
 } from "lucide-react";
 
 interface SidebarItem {

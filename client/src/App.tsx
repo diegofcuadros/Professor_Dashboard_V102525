@@ -17,6 +17,7 @@ import IntegrationsPage from "@/pages/admin/IntegrationsPage";
 import MyProjects from "@/pages/student/MyProjects";
 import MyTasks from "@/pages/student/MyTasks";
 import StudentProjectDetails from "@/pages/student/StudentProjectDetails";
+import ProfessorDashboard from "@/pages/admin/ProfessorDashboard";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -36,6 +37,7 @@ function Router() {
           <Route path="/admin/reports" component={ReportsManagement} />
           <Route path="/admin/settings" component={SystemSettings} />
           <Route path="/admin/integrations" component={IntegrationsPage} />
+          <Route path="/admin/dashboard" component={ProfessorDashboard} />
           <Route path="/projects" component={MyProjects} />
           <Route path="/student/projects" component={MyProjects} />
           <Route path="/student/projects/:projectId" component={StudentProjectDetails} />
