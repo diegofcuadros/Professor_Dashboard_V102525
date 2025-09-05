@@ -57,6 +57,7 @@ export default function StudentDashboard() {
     retry: false,
     enabled: !!user?.id,
   });
+  const { data: inboxMessages } = useQuery<any[]>({ queryKey: ["/api/messages/inbox"], retry: false, enabled: !!user?.id });
 
   // Fetch messageable users when opening compose
   async function ensureMessageableLoaded() {
@@ -315,6 +316,34 @@ export default function StudentDashboard() {
               </div>
               
               <div className="space-y-4">
+                {/* Inbox (persistent direct messages) */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-2">Inbox</h3>
+                  {(inboxMessages || []).length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No direct messages</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {(inboxMessages || []).map((m) => (
+                        <div key={m.id} className={`border border-border rounded-lg p-3 ${m.readAt ? '' : 'bg-blue-50 border-blue-200 dark:bg-blue-950/20'}`}>
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="text-muted-foreground">{new Date(m.sentAt).toLocaleString()}</div>
+                          </div>
+                          <div className="font-medium">{m.subject}</div>
+                          <div className="text-sm text-muted-foreground whitespace-pre-wrap">{m.body}</div>
+                          <div className="flex gap-2 mt-2">
+                            {!m.readAt && (
+                              <Button size="sm" variant="outline" onClick={async () => { await fetch(`/api/messages/${m.id}/read`, { method: 'PUT', credentials: 'include' }); queryClient.invalidateQueries({ queryKey: ["/api/messages/inbox"] }); }}>Mark as Read</Button>
+                            )}
+                            <Button size="sm" variant="outline" onClick={async () => { await ensureMessageableLoaded(); setRecipientId(m.senderId); const subj = m.subject || 'Re:'; setSubject(subj.startsWith('Re:') ? subj : `Re: ${subj}`); setBody(''); setShowCompose(true); }}>Reply</Button>
+                            <Button size="sm" variant="destructive" onClick={async () => { await fetch(`/api/messages/${m.id}`, { method: 'DELETE', credentials: 'include' }); queryClient.invalidateQueries({ queryKey: ["/api/messages/inbox"] }); }}>Delete</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Legacy notifications */}
                 {notifications && notifications.length > 0 ? (
                   notifications.map((notification: any) => (
                     <div 

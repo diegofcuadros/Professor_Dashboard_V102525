@@ -49,6 +49,19 @@ import {
   type AlertConfiguration,
   type InsertAlertConfiguration,
   scheduleComments,
+  directMessages,
+  type InsertNotification,
+  type Notification,
+  type InsertProject,
+  type InsertProjectAssignment,
+  type InsertProgressUpdate,
+  type InsertProjectTask,
+  type InsertTaskAssignment,
+  type InsertTaskCompletion,
+  type InsertWorkSchedule,
+  type InsertScheduleBlock,
+  type InsertTimeEntry,
+  type InsertTimeLog,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { db } from "./db";
@@ -90,6 +103,13 @@ export interface IStorage {
   getUserNotifications(userId: string): Promise<Notification[]>;
   markNotificationAsRead(id: string): Promise<Notification | undefined>;
   deleteNotification(id: string, userId: string): Promise<boolean>;
+
+  // Direct messages
+  createDirectMessage(data: { senderId: string; recipientId: string; subject: string; body: string }): Promise<{ id: string }>;
+  getInbox(userId: string): Promise<any[]>;
+  getSent(userId: string): Promise<any[]>;
+  markMessageRead(messageId: string, userId: string): Promise<boolean>;
+  softDeleteMessage(messageId: string, userId: string): Promise<boolean>;
   
   // Analytics operations
   getUserMetrics(userId: string): Promise<any>;
@@ -426,6 +446,55 @@ export class DatabaseStorage implements IStorage {
       .delete(notifications)
       .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // Direct messages
+  async createDirectMessage(data: { senderId: string; recipientId: string; subject: string; body: string }): Promise<{ id: string }> {
+    const [row] = await db.insert(directMessages).values({
+      senderId: data.senderId,
+      recipientId: data.recipientId,
+      subject: data.subject,
+      body: data.body,
+    }).returning({ id: directMessages.id });
+    return row;
+  }
+
+  async getInbox(userId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(directMessages)
+      .where(and(eq(directMessages.recipientId, userId), eq(directMessages.recipientDeleted, false)))
+      .orderBy(desc(directMessages.sentAt));
+  }
+
+  async getSent(userId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(directMessages)
+      .where(and(eq(directMessages.senderId, userId), eq(directMessages.senderDeleted, false)))
+      .orderBy(desc(directMessages.sentAt));
+  }
+
+  async markMessageRead(messageId: string, userId: string): Promise<boolean> {
+    // Only recipient can mark as read
+    const [msg] = await db.select().from(directMessages).where(eq(directMessages.id, messageId));
+    if (!msg || msg.recipientId !== userId) return false;
+    await db.update(directMessages).set({ readAt: new Date() }).where(eq(directMessages.id, messageId));
+    return true;
+  }
+
+  async softDeleteMessage(messageId: string, userId: string): Promise<boolean> {
+    const [msg] = await db.select().from(directMessages).where(eq(directMessages.id, messageId));
+    if (!msg) return false;
+    if (msg.senderId === userId) {
+      await db.update(directMessages).set({ senderDeleted: true }).where(eq(directMessages.id, messageId));
+      return true;
+    }
+    if (msg.recipientId === userId) {
+      await db.update(directMessages).set({ recipientDeleted: true }).where(eq(directMessages.id, messageId));
+      return true;
+    }
+    return false;
   }
 
   // Analytics operations

@@ -1592,13 +1592,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Recipient not found or inactive" });
       }
       
+      // Persist the direct message
+      const msgRow = await storage.createDirectMessage({ senderId: currentUser.id, recipientId, subject, body: message });
+
       // Send the direct message with in-app notification (email disabled by default)
       await notificationService.sendDirectMessageWithNotification(currentUser.id, recipientId, subject, message, false);
       
-      res.json({ success: true, message: "Message sent successfully" });
+      res.json({ success: true, message: "Message sent successfully", id: msgRow.id });
     } catch (error) {
       console.error("Error sending direct message:", error);
       res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Direct messages inbox
+  app.get('/api/messages/inbox', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const rows = await storage.getInbox(currentUser.id);
+      res.json(rows);
+    } catch (e) {
+      console.error('Error fetching inbox:', e);
+      res.status(500).json({ message: 'Failed to fetch inbox' });
+    }
+  });
+
+  // Direct messages sent
+  app.get('/api/messages/sent', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const rows = await storage.getSent(currentUser.id);
+      res.json(rows);
+    } catch (e) {
+      console.error('Error fetching sent messages:', e);
+      res.status(500).json({ message: 'Failed to fetch sent messages' });
+    }
+  });
+
+  // Mark direct message as read
+  app.put('/api/messages/:id/read', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const ok = await storage.markMessageRead(req.params.id, currentUser.id);
+      if (!ok) return res.status(403).json({ message: 'Not allowed' });
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('Error marking message read:', e);
+      res.status(500).json({ message: 'Failed to mark message as read' });
+    }
+  });
+
+  // Soft delete direct message for caller
+  app.delete('/api/messages/:id', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user!;
+      const ok = await storage.softDeleteMessage(req.params.id, currentUser.id);
+      if (!ok) return res.status(404).json({ message: 'Message not found' });
+      res.json({ ok: true });
+    } catch (e) {
+      console.error('Error deleting message:', e);
+      res.status(500).json({ message: 'Failed to delete message' });
     }
   });
 

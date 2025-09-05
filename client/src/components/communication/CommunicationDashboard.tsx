@@ -90,6 +90,31 @@ export default function CommunicationDashboard() {
     },
   });
 
+  // Inbox & Sent
+  const { data: inbox } = useQuery<any[]>({ queryKey: ["/api/messages/inbox"], retry: false });
+  const { data: sent } = useQuery<any[]>({ queryKey: ["/api/messages/sent"], retry: false });
+
+  const deleteMessage = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/messages/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to delete message');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/inbox"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/sent"] });
+    }
+  });
+
+  const markRead = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/messages/${id}/read`, { method: 'PUT', credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to mark read');
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/messages/inbox"] })
+  });
+
   // Fetch lab insights from AI service
   const { data: labInsights, isLoading: insightsLoading } = useQuery<LabInsights>({
     queryKey: ["/api/ai/lab-insights"],
@@ -149,10 +174,18 @@ export default function CommunicationDashboard() {
       </div>
 
       <Tabs defaultValue="messaging" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="messaging" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
             Direct Messaging
+          </TabsTrigger>
+          <TabsTrigger value="inbox" className="flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Inbox
+          </TabsTrigger>
+          <TabsTrigger value="sent" className="flex items-center gap-2">
+            <Send className="h-4 w-4" />
+            Sent
           </TabsTrigger>
           <TabsTrigger value="insights" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
@@ -266,6 +299,56 @@ export default function CommunicationDashboard() {
                   </div>
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="inbox" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Inbox</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(inbox || []).length === 0 && <div className="text-sm text-muted-foreground">No messages</div>}
+              {(inbox || []).map((m) => (
+                <div key={m.id} className={`p-3 border rounded ${m.readAt ? '' : 'bg-blue-50 border-blue-200'}`}>
+                  <div className="flex justify-between text-sm">
+                    <div><strong>From:</strong> {m.senderId}</div>
+                    <div className="text-muted-foreground">{new Date(m.sentAt).toLocaleString()}</div>
+                  </div>
+                  <div className="font-medium">{m.subject}</div>
+                  <div className="text-sm text-muted-foreground whitespace-pre-wrap">{m.body}</div>
+                  <div className="mt-2 flex gap-2">
+                    {!m.readAt && <Button size="sm" variant="outline" onClick={() => markRead.mutate(m.id)}>Mark Read</Button>}
+                    <Button size="sm" variant="outline" onClick={() => { setSelectedRecipient(m.senderId); setMessageSubject(m.subject.startsWith('Re:') ? m.subject : `Re: ${m.subject}`); setMessageBody(''); }}>Reply</Button>
+                    <Button size="sm" variant="destructive" onClick={() => deleteMessage.mutate(m.id)}>Delete</Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="sent" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sent</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(sent || []).length === 0 && <div className="text-sm text-muted-foreground">No messages</div>}
+              {(sent || []).map((m) => (
+                <div key={m.id} className="p-3 border rounded">
+                  <div className="flex justify-between text-sm">
+                    <div><strong>To:</strong> {m.recipientId}</div>
+                    <div className="text-muted-foreground">{new Date(m.sentAt).toLocaleString()}</div>
+                  </div>
+                  <div className="font-medium">{m.subject}</div>
+                  <div className="text-sm text-muted-foreground whitespace-pre-wrap">{m.body}</div>
+                  <div className="mt-2 flex gap-2">
+                    <Button size="sm" variant="destructive" onClick={() => deleteMessage.mutate(m.id)}>Delete</Button>
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>

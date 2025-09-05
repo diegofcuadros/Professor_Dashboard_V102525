@@ -167,6 +167,19 @@ export const timeLogs = pgTable("time_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Persistent direct messages (sender/recipient keep independent visibility via soft-delete flags)
+export const directMessages = pgTable("direct_messages", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  senderId: varchar("sender_id").references(() => users.id).notNull(),
+  recipientId: varchar("recipient_id").references(() => users.id).notNull(),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  body: text("body").notNull(),
+  sentAt: timestamp("sent_at").defaultNow(),
+  readAt: timestamp("read_at"),
+  senderDeleted: boolean("sender_deleted").default(false),
+  recipientDeleted: boolean("recipient_deleted").default(false),
+});
+
 export const notifications = pgTable("notifications", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
