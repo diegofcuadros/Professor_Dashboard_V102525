@@ -45,6 +45,7 @@ export default function CommunicationDashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  const [activeTab, setActiveTab] = useState("messaging");
   const [selectedRecipient, setSelectedRecipient] = useState<string>("");
   const [messageSubject, setMessageSubject] = useState("");
   const [messageBody, setMessageBody] = useState("");
@@ -173,7 +174,7 @@ export default function CommunicationDashboard() {
         </div>
       </div>
 
-      <Tabs defaultValue="messaging" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="messaging" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
@@ -320,7 +321,7 @@ export default function CommunicationDashboard() {
                   <div className="text-sm text-muted-foreground whitespace-pre-wrap">{m.body}</div>
                   <div className="mt-2 flex gap-2">
                     {!m.readAt && <Button size="sm" variant="outline" onClick={() => markRead.mutate(m.id)}>Mark Read</Button>}
-                    <Button size="sm" variant="outline" onClick={() => { setSelectedRecipient(m.senderId); setMessageSubject(m.subject.startsWith('Re:') ? m.subject : `Re: ${m.subject}`); setMessageBody(''); }}>Reply</Button>
+                    <Button size="sm" variant="outline" onClick={() => { setSelectedRecipient(m.senderId); setMessageSubject(m.subject.startsWith('Re:') ? m.subject : `Re: ${m.subject}`); setMessageBody(''); setActiveTab('messaging'); }}>Reply</Button>
                     <Button size="sm" variant="destructive" onClick={() => deleteMessage.mutate(m.id)}>Delete</Button>
                   </div>
                 </div>
