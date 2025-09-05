@@ -759,13 +759,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: req.body.notes || undefined,
       };
 
-      // Enforce only current week creation
+      // Enforce current-week creation by overriding to the server's current Monday
       const now = new Date();
       const monday = new Date(now.setDate(now.getDate() - now.getDay() + 1));
       const currentMondayISO = monday.toISOString().split('T')[0];
-      if (payload.weekStartDate !== currentMondayISO) {
-        return res.status(400).json({ message: 'Can only create a schedule for the current week.' });
-      }
+      payload.weekStartDate = currentMondayISO;
 
       // Validate the schedule data
       const validatedData = insertWorkScheduleSchema.parse(payload);

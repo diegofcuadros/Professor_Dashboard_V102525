@@ -149,7 +149,12 @@ export default function ScheduleSubmission() {
   // Create schedule mutation
   const createScheduleMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("POST", "/api/work-schedules", data);
+      // Force the payload to match server-side current Monday
+      const today = new Date();
+      const monday = new Date(today.setDate(today.getDate() - today.getDay() + 1));
+      const currentMondayISO = monday.toISOString().split('T')[0];
+      const coerced = { ...data, weekStartDate: currentMondayISO };
+      return await apiRequest("POST", "/api/work-schedules", coerced);
     },
     onSuccess: async (res) => {
       const newSchedule: WorkSchedule = await res.json();
