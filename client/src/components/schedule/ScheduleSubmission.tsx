@@ -116,8 +116,9 @@ export default function ScheduleSubmission() {
     onSuccess: async () => {
       setEditingRowId(null);
       await refetchBlocks();
-      queryClient.invalidateQueries({ queryKey: ["/api/work-schedules"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/schedule-validation"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/work-schedules?weekStart=${selectedWeek}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/schedule-validation/${user?.id}?weekStart=${selectedWeek}`] });
+      queryClient.refetchQueries({ queryKey: [`/api/schedule-validation/${user?.id}?weekStart=${selectedWeek}`] });
     },
   });
 
@@ -127,8 +128,9 @@ export default function ScheduleSubmission() {
     },
     onSuccess: async () => {
       await refetchBlocks();
-      queryClient.invalidateQueries({ queryKey: ["/api/work-schedules"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/schedule-validation"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/work-schedules?weekStart=${selectedWeek}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/schedule-validation/${user?.id}?weekStart=${selectedWeek}`] });
+      queryClient.refetchQueries({ queryKey: [`/api/schedule-validation/${user?.id}?weekStart=${selectedWeek}`] });
     },
   });
 
@@ -164,7 +166,7 @@ export default function ScheduleSubmission() {
       });
       setShowCreateSchedule(false);
       setEditingSchedule(newSchedule);
-      queryClient.invalidateQueries({ queryKey: ["/api/work-schedules"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/work-schedules?weekStart=${selectedWeek}`] });
       // Initialize empty blocks for new schedule
       setScheduleBlocks([]);
     },
@@ -192,8 +194,9 @@ export default function ScheduleSubmission() {
       // Refresh schedule blocks and validation
       if (editingSchedule) {
         refetchBlocks();
-        queryClient.invalidateQueries({ queryKey: ["/api/schedule-validation"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/work-schedules"] });
+        queryClient.invalidateQueries({ queryKey: [`/api/schedule-validation/${user?.id}?weekStart=${selectedWeek}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/work-schedules?weekStart=${selectedWeek}`] });
+        queryClient.refetchQueries({ queryKey: [`/api/schedule-validation/${user?.id}?weekStart=${selectedWeek}`] });
       }
     },
     onError: (error: any) => {
@@ -215,7 +218,7 @@ export default function ScheduleSubmission() {
         title: "Schedule Submitted",
         description: "Your schedule has been submitted for approval",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/work-schedules"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/work-schedules?weekStart=${selectedWeek}`] });
     },
     onError: (error: any) => {
       toast({
@@ -517,8 +520,9 @@ export default function ScheduleSubmission() {
                       await apiRequest('PUT', `/api/work-schedules/${currentSchedule.id}/revise`, {});
                       // refresh blocks
                       await refetchBlocks();
-                      queryClient.invalidateQueries({ queryKey: ["/api/work-schedules"] });
-                      queryClient.invalidateQueries({ queryKey: ["/api/schedule-validation"] });
+                      queryClient.invalidateQueries({ queryKey: [`/api/work-schedules?weekStart=${selectedWeek}`] });
+                      queryClient.invalidateQueries({ queryKey: [`/api/schedule-validation/${user?.id}?weekStart=${selectedWeek}`] });
+                      queryClient.refetchQueries({ queryKey: [`/api/schedule-validation/${user?.id}?weekStart=${selectedWeek}`] });
                     } catch (e) {
                       console.error('Failed to revise schedule:', e);
                     }
