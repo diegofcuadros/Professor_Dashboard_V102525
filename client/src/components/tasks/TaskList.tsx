@@ -152,6 +152,7 @@ export default function TaskList({ projectId, title = "My Tasks", showProject = 
                     <TaskCard
                       key={task.id}
                       task={task}
+                      user={user}
                       showProject={showProject}
                       onTaskCompleted={() => refetch()}
                       onTaskUpdated={() => refetch()}
@@ -173,6 +174,7 @@ export default function TaskList({ projectId, title = "My Tasks", showProject = 
                     <TaskCard
                       key={task.id}
                       task={task}
+                      user={user}
                       showProject={showProject}
                       onTaskUpdated={() => refetch()}
                     />

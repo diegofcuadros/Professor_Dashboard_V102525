@@ -63,6 +63,7 @@ import { Link } from "wouter";
 import { format } from "date-fns";
 import VelocityMetrics from "@/components/admin/VelocityMetrics";
 import LiveActivity from "@/components/admin/LiveActivity";
+import TaskCard from "@/components/tasks/TaskCard";
 
 interface TeamTask {
   id: string;
@@ -85,6 +86,9 @@ interface TeamTask {
   isOverdue: boolean;
   daysSinceLastUpdate: number;
   riskLevel: 'low' | 'medium' | 'high';
+  // Add fields from TaskCard's task prop if they are missing
+  projectName?: string;
+  isCompleted?: boolean;
 }
 
 interface StudentSummary {
@@ -562,154 +566,37 @@ export default function TeamTasks() {
 
         {/* Tasks View */}
         {currentView === 'tasks' && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>
-                  Team Tasks
-                  {filteredTasks.length > 0 && (
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      ({filteredTasks.length} tasks)
-                    </span>
-                  )}
-                </CardTitle>
-                {selectedTasks.length > 0 && (
-                  <Badge variant="secondary">
-                    {selectedTasks.length} selected
-                  </Badge>
-                )}
+          <div className="space-y-4">
+            {tasksLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <Skeleton key={i} className="h-64 w-full" />
+                ))}
               </div>
-            </CardHeader>
-            <CardContent>
-              {tasksLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-16 w-full" />
-                  ))}
-                </div>
-              ) : filteredTasks.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
+            ) : filteredTasks.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12 text-muted-foreground">
                   <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-lg font-medium mb-2">No tasks found</p>
                   <p className="text-sm">
                     Try adjusting your filters or search criteria
                   </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox
-                            checked={selectedTasks.length === filteredTasks.length}
-                            onCheckedChange={handleSelectAll}
-                          />
-                        </TableHead>
-                        <TableHead>Task</TableHead>
-                        <TableHead>Student</TableHead>
-                        <TableHead>Project</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Progress</TableHead>
-                        <TableHead>Priority</TableHead>
-                        <TableHead>Risk</TableHead>
-                        <TableHead>Due Date</TableHead>
-                        <TableHead>Last Update</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredTasks.map((task) => (
-                        <TableRow key={task.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedTasks.includes(task.id)}
-                              onCheckedChange={(checked) => 
-                                handleTaskSelect(task.id, checked as boolean)
-                              }
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <p className="font-medium">{task.title}</p>
-                              {task.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-1">
-                                  {task.description}
-                                </p>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <p className="font-medium">{task.studentName}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {task.studentEmail}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{task.projectName}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={statusColors[task.status as keyof typeof statusColors]}>
-                              {task.status.replace('-', ' ')}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <Progress value={task.progressPct} className="h-2" />
-                              <p className="text-sm text-muted-foreground">
-                                {task.progressPct}%
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={priorityColors[task.priority as keyof typeof priorityColors]}>
-                              {task.priority}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={riskColors[task.riskLevel]}>
-                              {task.riskLevel}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {task.dueDate ? (
-                              <div className={`text-sm ${task.isOverdue ? 'text-red-600 font-medium' : ''}`}>
-                                {format(new Date(task.dueDate), "MMM d, yyyy")}
-                                {task.isOverdue && (
-                                  <div className="flex items-center gap-1 mt-1">
-                                    <AlertTriangle className="h-3 w-3" />
-                                    <span className="text-xs">Overdue</span>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">No deadline</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              {task.daysSinceLastUpdate === 0 ? (
-                                <span className="text-green-600">Today</span>
-                              ) : task.daysSinceLastUpdate === 1 ? (
-                                <span>Yesterday</span>
-                              ) : task.daysSinceLastUpdate > 7 ? (
-                                <span className="text-red-600 font-medium">
-                                  {task.daysSinceLastUpdate} days ago
-                                </span>
-                              ) : (
-                                <span>{task.daysSinceLastUpdate} days ago</span>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    user={user}
+                    showProject={true}
+                    onTaskUpdated={() => refetchTasks()}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Students View */}

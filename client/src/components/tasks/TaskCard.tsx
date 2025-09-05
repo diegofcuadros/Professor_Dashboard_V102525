@@ -34,6 +34,8 @@ import {
   ChevronUp
 } from "lucide-react";
 import TaskActivity from "./TaskActivity";
+import { useAuth } from "@/hooks/useAuth";
+import type { User } from "@shared/schema";
 
 interface TaskCardProps {
   task: {
@@ -50,6 +52,7 @@ interface TaskCardProps {
     status?: string;
     progressPct?: number;
   };
+  user: User | null;
   showProject?: boolean;
   onTaskCompleted?: () => void;
   onTaskUpdated?: () => void;
@@ -91,7 +94,7 @@ const statusLabels = {
   blocked: "Blocked"
 };
 
-export default function TaskCard({ task, showProject = false, onTaskCompleted, onTaskUpdated }: TaskCardProps) {
+export default function TaskCard({ task, showProject = false, onTaskCompleted, onTaskUpdated, user }: TaskCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCompleteForm, setShowCompleteForm] = useState(false);
@@ -106,6 +109,8 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
   const [progressValue, setProgressValue] = useState([task.progressPct || 0]);
   const [selectedStatus, setSelectedStatus] = useState(task.status || 'pending');
 
+  const isProfessor = user?.role === 'professor';
+
   const completeTaskMutation = useMutation({
     mutationFn: async (data: { notes?: string; hoursSpent?: number }) => {
       return apiRequest("POST", `/api/tasks/${task.id}/complete`, data);
@@ -117,6 +122,7 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
       });
       queryClient.invalidateQueries({ queryKey: ["/api/user/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tasks/overview"] });
       setShowCompleteForm(false);
       setCompletionNotes("");
       setHoursSpent("");
@@ -144,6 +150,7 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
       });
       queryClient.invalidateQueries({ queryKey: ["/api/user/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tasks/overview"] });
       onTaskUpdated?.();
     },
     onError: (error: any) => {
@@ -168,6 +175,7 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
       });
       queryClient.invalidateQueries({ queryKey: ["/api/user/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tasks/overview"] });
       setShowProgressForm(false);
       onTaskUpdated?.();
     },
@@ -193,6 +201,9 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
       });
       setNewComment("");
       setShowCommentForm(false);
+      // We need to refetch the activity feed, which is handled internally by TaskActivity
+      // but we also need to update the main task list if comments affect task state.
+      queryClient.invalidateQueries({ queryKey: [`/api/tasks/${task.id}/activity`] });
       onTaskUpdated?.();
     },
     onError: (error: any) => {
@@ -284,7 +295,7 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
               }`}>
                 {task.title}
               </h3>
-              {currentProgress > 0 && (
+              {currentProgress > 0 && !isProfessor && (
                 <Badge variant="outline" className="text-xs ml-auto">
                   {currentProgress}%
                 </Badge>
@@ -292,7 +303,7 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
             </div>
             
             {/* Progress Bar */}
-            {currentProgress > 0 && (
+            {!isProfessor && currentProgress > 0 && (
               <div className="mb-2">
                 <Progress value={currentProgress} className="h-2" />
               </div>
@@ -335,7 +346,7 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
             <div className="flex flex-col gap-2">
               {/* Quick Actions */}
               <div className="flex gap-1">
-                {currentStatus === 'pending' && (
+                {!isProfessor && currentStatus === 'pending' && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -347,7 +358,7 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
                   </Button>
                 )}
                 
-                {currentStatus === 'in-progress' && (
+                {!isProfessor && currentStatus === 'in-progress' && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -359,14 +370,16 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
                   </Button>
                 )}
                 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowProgressForm(!showProgressForm)}
-                  data-testid="button-update-progress"
-                >
-                  <Activity className="h-3 w-3" />
-                </Button>
+                {!isProfessor && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowProgressForm(!showProgressForm)}
+                    data-testid="button-update-progress"
+                  >
+                    <Activity className="h-3 w-3" />
+                  </Button>
+                )}
                 
                 <Button
                   size="sm"
@@ -414,24 +427,41 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
           )}
         </div>
 
+        {/* Professor Comment Form Toggle */}
+        {isProfessor && (
+          <div className="mt-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowCommentForm(!showCommentForm)}
+              className="w-full"
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />
+              {showCommentForm ? 'Cancel' : 'Add Comment'}
+            </Button>
+          </div>
+        )}
+
         {/* Sprint B: Status Selector */}
-        <div className="mt-3">
-          <Label className="text-xs text-muted-foreground">Status</Label>
-          <Select value={selectedStatus} onValueChange={handleStatusChange}>
-            <SelectTrigger className="h-8 mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="in-progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="blocked">Blocked</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {!isProfessor && (
+          <div className="mt-3">
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Select value={selectedStatus} onValueChange={handleStatusChange}>
+              <SelectTrigger className="h-8 mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="blocked">Blocked</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Sprint B: Progress Update Form */}
-        {showProgressForm && (
+        {!isProfessor && showProgressForm && (
           <div className="mt-4 p-4 border rounded-lg bg-muted/50">
             <h4 className="text-sm font-medium mb-3">Update Progress</h4>
             <div className="space-y-3">
@@ -502,7 +532,7 @@ export default function TaskCard({ task, showProject = false, onTaskCompleted, o
         )}
 
         {/* Task Completion Form (Legacy) */}
-        {showCompleteForm && !task.isCompleted && (
+        {!isProfessor && showCompleteForm && !task.isCompleted && (
           <div className="mt-4 p-4 border rounded-lg bg-muted/50">
             <h4 className="text-sm font-medium mb-3">Complete Task</h4>
             
