@@ -101,6 +101,7 @@ export default function ScheduleSubmission() {
   
   // Form states
   const [notes, setNotes] = useState("");
+  const [editForm, setEditForm] = useState<{ dayOfWeek?: string; startTime?: string; durationHours?: number; location?: string; plannedActivity?: string }>({});
   const [newBlock, setNewBlock] = useState<Partial<ScheduleBlock>>({
     dayOfWeek: 'monday',
     startTime: '09:00',
@@ -715,7 +716,7 @@ export default function ScheduleSubmission() {
                             <>
                               <TableCell className="capitalize">{block.dayOfWeek}</TableCell>
                               <TableCell>
-                                <Select value={block.startTime} onValueChange={(v) => setEditForm(prev => ({ ...prev, startTime: v }))}>
+                                <Select value={editForm.startTime ?? block.startTime} onValueChange={(v) => setEditForm(prev => ({ ...prev, startTime: v }))}>
                                   <SelectTrigger><SelectValue /></SelectTrigger>
                                   <SelectContent>
                                     {START_TIMES.map(t => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
@@ -723,22 +724,22 @@ export default function ScheduleSubmission() {
                                 </Select>
                               </TableCell>
                               <TableCell>
-                                <Select value={String(editForm.durationHours)} onValueChange={(v) => setEditForm(prev => ({ ...prev, durationHours: parseInt(v,10) || 1 }))}>
+                                <Select value={String(editForm.durationHours ?? calculateDuration(block.startTime, block.endTime))} onValueChange={(v) => setEditForm(prev => ({ ...prev, durationHours: parseInt(v,10) || 1 }))}>
                                   <SelectTrigger><SelectValue /></SelectTrigger>
                                   <SelectContent>
                                     {Array.from({ length: 8 }, (_, i) => i + 1).map(h => (<SelectItem key={h} value={String(h)}>{h}</SelectItem>))}
                                   </SelectContent>
                                 </Select>
                               </TableCell>
-                              <TableCell><Input defaultValue={block.location} onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))} /></TableCell>
-                              <TableCell><Input defaultValue={block.plannedActivity} onChange={(e) => setEditForm(prev => ({ ...prev, plannedActivity: e.target.value }))} /></TableCell>
+                              <TableCell><Input value={editForm.location ?? block.location} onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))} /></TableCell>
+                              <TableCell><Input value={editForm.plannedActivity ?? block.plannedActivity} onChange={(e) => setEditForm(prev => ({ ...prev, plannedActivity: e.target.value }))} /></TableCell>
                               <TableCell>
                                 <div className="flex gap-1">
                                   <Button size="sm" onClick={() => {
                                     const end = computeEndTime(editForm.startTime || block.startTime, editForm.durationHours || 1);
                                     updateBlockMutation.mutate({ blockId: String(block.id), updates: { startTime: editForm.startTime || block.startTime, endTime: end, location: editForm.location || block.location, plannedActivity: editForm.plannedActivity || block.plannedActivity } });
                                   }}>Save</Button>
-                                  <Button size="sm" variant="ghost" onClick={() => setEditingRowId(null)}>Cancel</Button>
+                                  <Button size="sm" variant="ghost" onClick={() => { setEditingRowId(null); setEditForm({}); }}>Cancel</Button>
                                 </div>
                               </TableCell>
                             </>
