@@ -11,12 +11,13 @@ import MyProjects from "./MyProjects";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Clock, Projector, Calendar, TrendingUp, Plus, BookOpen, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const baseStudentSidebarItems = [
   { id: 'dashboard', label: 'Dashboard', icon: 'chart-line' },
@@ -58,6 +59,7 @@ export default function StudentDashboard() {
     enabled: !!user?.id,
   });
   const { data: inboxMessages } = useQuery<any[]>({ queryKey: ["/api/messages/inbox"], retry: false, enabled: !!user?.id });
+  const { data: sentMessages } = useQuery<any[]>({ queryKey: ["/api/messages/sent"], retry: false, enabled: !!user?.id });
 
   // Fetch messageable users when opening compose
   async function ensureMessageableLoaded() {
@@ -305,7 +307,7 @@ export default function StudentDashboard() {
               <div className="mb-6 flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-foreground mb-2">Messages</h2>
                 <div className="flex items-center gap-3">
-                  <p className="text-muted-foreground hidden md:block">Your messages and notifications from professors</p>
+                  <p className="text-muted-foreground hidden md:block">Your messages and notifications</p>
                   <Button
                     size="sm"
                     onClick={async () => { setShowCompose(true); await ensureMessageableLoaded(); }}
@@ -315,128 +317,149 @@ export default function StudentDashboard() {
                 </div>
               </div>
               
-              <div className="space-y-4">
-                {/* Inbox (persistent direct messages) */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">Inbox</h3>
-                  {(inboxMessages || []).length === 0 ? (
-                    <div className="text-sm text-muted-foreground">No direct messages</div>
-                  ) : (
-                    <div className="space-y-3">
-                      {(inboxMessages || []).map((m) => (
-                        <div key={m.id} className={`border border-border rounded-lg p-3 ${m.readAt ? '' : 'bg-blue-50 border-blue-200 dark:bg-blue-950/20'}`}>
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="text-muted-foreground">{new Date(m.sentAt).toLocaleString()}</div>
-                          </div>
-                          <div className="font-medium">{m.subject}</div>
-                          <div className="text-sm text-muted-foreground whitespace-pre-wrap">{m.body}</div>
-                          <div className="flex gap-2 mt-2">
-                            {!m.readAt && (
-                              <Button size="sm" variant="outline" onClick={async () => { await fetch(`/api/messages/${m.id}/read`, { method: 'PUT', credentials: 'include' }); queryClient.invalidateQueries({ queryKey: ["/api/messages/inbox"] }); }}>Mark as Read</Button>
-                            )}
-                            <Button size="sm" variant="outline" onClick={async () => { await ensureMessageableLoaded(); setRecipientId(m.senderId); const subj = m.subject || 'Re:'; setSubject(subj.startsWith('Re:') ? subj : `Re: ${subj}`); setBody(''); setShowCompose(true); }}>Reply</Button>
-                            <Button size="sm" variant="destructive" onClick={async () => { await fetch(`/api/messages/${m.id}`, { method: 'DELETE', credentials: 'include' }); queryClient.invalidateQueries({ queryKey: ["/api/messages/inbox"] }); }}>Delete</Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Legacy notifications */}
-                {notifications && notifications.length > 0 ? (
-                  notifications.map((notification: any) => (
-                    <div 
-                      key={notification.id} 
-                      className={`border border-border rounded-lg p-4 ${
-                        !notification.readAt ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/20' : 'bg-card'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-semibold text-foreground">{notification.subject}</h3>
-                        <div className="flex items-center gap-2">
-                          {!notification.readAt && (
-                            <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">NEW</span>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(notification.sentAt).toLocaleDateString()}
-                          </span>
-                        </div>
+              <Tabs defaultValue="inbox">
+                <TabsList>
+                  <TabsTrigger value="inbox">Inbox</TabsTrigger>
+                  <TabsTrigger value="sent">Sent</TabsTrigger>
+                  <TabsTrigger value="notifications">Notifications</TabsTrigger>
+                </TabsList>
+                <TabsContent value="inbox" className="pt-4">
+                  <div className="space-y-4">
+                    {/* Inbox (persistent direct messages) */}
+                    {(inboxMessages || []).length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>Your inbox is empty.</p>
                       </div>
-                      
-                      <p className="text-muted-foreground mb-3">{notification.content}</p>
-                      
-                      {notification.metadata?.fromUserName && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground border-t pt-2">
-                          <span>From: {notification.metadata.fromUserName}</span>
-                          {notification.metadata?.fromUserRole && (
-                            <span className="capitalize">({notification.metadata.fromUserRole})</span>
-                          )}
-                        </div>
-                      )}
-                      
-                      <div className="flex gap-2 mt-3">
-                        {!notification.readAt && (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                await fetch(`/api/notifications/${notification.id}/read`, {
-                                  method: 'PUT',
-                                  credentials: 'include'
-                                });
-                                window.location.reload();
-                              } catch (error) {
-                                console.error('Error marking notification as read:', error);
-                              }
-                            }}
-                          >
-                            Mark as Read
-                          </Button>
-                        )}
-                        {notification.type === 'direct_message' && notification.metadata?.fromUserId && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              await ensureMessageableLoaded();
-                              setRecipientId(notification.metadata.fromUserId);
-                              const subj = notification.subject || notification.title || 'Re:';
-                              setSubject(subj.startsWith('Re:') ? subj : `Re: ${subj}`);
-                              setBody("");
-                              setShowCompose(true);
-                            }}
-                          >
-                            Reply
-                          </Button>
-                        )}
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              await fetch(`/api/notifications/${notification.id}`, {
-                                method: 'DELETE',
-                                credentials: 'include'
-                              });
-                              window.location.reload();
-                            } catch (error) {
-                              console.error('Error deleting notification:', error);
-                            }
-                          }}
-                        >
-                          Delete
-                        </Button>
+                    ) : (
+                      <div className="space-y-3">
+                        {(inboxMessages || []).map((m) => (
+                          <div key={m.id} className={`border border-border rounded-lg p-3 ${m.readAt ? '' : 'bg-blue-50 border-blue-200 dark:bg-blue-950/20'}`}>
+                            <div className="flex items-center justify-between text-sm mb-1">
+                              <div><strong>From:</strong> {m.senderFirstName} {m.senderLastName}</div>
+                              <div className="text-muted-foreground">{new Date(m.sentAt).toLocaleString()}</div>
+                            </div>
+                            <div className="font-semibold">{m.subject}</div>
+                            <div className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">{m.body}</div>
+                            <div className="flex gap-2 mt-3">
+                              {!m.readAt && (
+                                <Button size="sm" variant="outline" onClick={async () => { await fetch(`/api/messages/${m.id}/read`, { method: 'PUT', credentials: 'include' }); queryClient.invalidateQueries({ queryKey: ["/api/messages/inbox"] }); }}>Mark as Read</Button>
+                              )}
+                              <Button size="sm" variant="outline" onClick={async () => { await ensureMessageableLoaded(); setRecipientId(m.senderId); const subj = m.subject || 'Re:'; setSubject(subj.startsWith('Re:') ? subj : `Re: ${subj}`); setBody(''); setShowCompose(true); }}>Reply</Button>
+                              <Button size="sm" variant="destructive" onClick={async () => { await fetch(`/api/messages/${m.id}`, { method: 'DELETE', credentials: 'include' }); queryClient.invalidateQueries({ queryKey: ["/api/messages/inbox"] }); }}>Delete</Button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No messages yet. Your professors' messages will appear here.</p>
+                    )}
                   </div>
-                )}
-              </div>
+                </TabsContent>
+                <TabsContent value="sent" className="pt-4">
+                  <div className="space-y-4">
+                    {(sentMessages || []).length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>You have no sent messages.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {(sentMessages || []).map((m) => (
+                          <div key={m.id} className="border border-border rounded-lg p-3">
+                            <div className="flex items-center justify-between text-sm mb-1">
+                              <div><strong>To:</strong> {m.recipientFirstName} {m.recipientLastName}</div>
+                              <div className="text-muted-foreground">{new Date(m.sentAt).toLocaleString()}</div>
+                            </div>
+                            <div className="font-semibold">{m.subject}</div>
+                            <div className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">{m.body}</div>
+                            <div className="flex gap-2 mt-3">
+                              <Button size="sm" variant="destructive" onClick={async () => { await fetch(`/api/messages/${m.id}`, { method: 'DELETE', credentials: 'include' }); queryClient.invalidateQueries({ queryKey: ["/api/messages/sent"] }); }}>Delete</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="notifications" className="pt-4">
+                  <div className="space-y-4">
+                    {/* Legacy notifications */}
+                    {notifications && notifications.length > 0 ? (
+                      notifications.map((notification: any) => (
+                        <div 
+                          key={notification.id} 
+                          className={`border border-border rounded-lg p-4 ${
+                            !notification.readAt ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/20' : 'bg-card'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <h3 className="font-semibold text-foreground">{notification.subject}</h3>
+                            <div className="flex items-center gap-2">
+                              {!notification.readAt && (
+                                <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">NEW</span>
+                              )}
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(notification.sentAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <p className="text-muted-foreground mb-3">{notification.content}</p>
+                          
+                          {notification.metadata?.fromUserName && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground border-t pt-2">
+                              <span>From: {notification.metadata.fromUserName}</span>
+                              {notification.metadata?.fromUserRole && (
+                                <span className="capitalize">({notification.metadata.fromUserRole})</span>
+                              )}
+                            </div>
+                          )}
+                          
+                          <div className="flex gap-2 mt-3">
+                            {!notification.readAt && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    await fetch(`/api/notifications/${notification.id}/read`, {
+                                      method: 'PUT',
+                                      credentials: 'include'
+                                    });
+                                    window.location.reload();
+                                  } catch (error) {
+                                    console.error('Error marking notification as read:', error);
+                                  }
+                                }}
+                              >
+                                Mark as Read
+                              </Button>
+                            )}
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  await fetch(`/api/notifications/${notification.id}`, {
+                                    method: 'DELETE',
+                                    credentials: 'include'
+                                  });
+                                  window.location.reload();
+                                } catch (error) {
+                                  console.error('Error deleting notification:', error);
+                                }
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <p>No system notifications.</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               <Dialog open={showCompose} onOpenChange={setShowCompose}>
                 <DialogContent>

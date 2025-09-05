@@ -313,7 +313,7 @@ export default function CommunicationDashboard() {
               {(inbox || []).map((m) => (
                 <div key={m.id} className={`p-3 border rounded ${m.readAt ? '' : 'bg-blue-50 border-blue-200'}`}>
                   <div className="flex justify-between text-sm">
-                    <div><strong>From:</strong> {m.senderId}</div>
+                    <div><strong>From:</strong> {m.senderFirstName} {m.senderLastName}</div>
                     <div className="text-muted-foreground">{new Date(m.sentAt).toLocaleString()}</div>
                   </div>
                   <div className="font-medium">{m.subject}</div>
@@ -339,7 +339,7 @@ export default function CommunicationDashboard() {
               {(sent || []).map((m) => (
                 <div key={m.id} className="p-3 border rounded">
                   <div className="flex justify-between text-sm">
-                    <div><strong>To:</strong> {m.recipientId}</div>
+                    <div><strong>To:</strong> {m.recipientFirstName} {m.recipientLastName}</div>
                     <div className="text-muted-foreground">{new Date(m.sentAt).toLocaleString()}</div>
                   </div>
                   <div className="font-medium">{m.subject}</div>

@@ -460,17 +460,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getInbox(userId: string): Promise<any[]> {
-    return await db
-      .select()
+    return db
+      .select({
+        id: directMessages.id,
+        senderId: directMessages.senderId,
+        recipientId: directMessages.recipientId,
+        subject: directMessages.subject,
+        body: directMessages.body,
+        sentAt: directMessages.sentAt,
+        readAt: directMessages.readAt,
+        senderFirstName: users.firstName,
+        senderLastName: users.lastName,
+      })
       .from(directMessages)
+      .innerJoin(users, eq(directMessages.senderId, users.id))
       .where(and(eq(directMessages.recipientId, userId), eq(directMessages.recipientDeleted, false)))
       .orderBy(desc(directMessages.sentAt));
   }
 
   async getSent(userId: string): Promise<any[]> {
-    return await db
-      .select()
+    return db
+      .select({
+        id: directMessages.id,
+        senderId: directMessages.senderId,
+        recipientId: directMessages.recipientId,
+        subject: directMessages.subject,
+        body: directMessages.body,
+        sentAt: directMessages.sentAt,
+        readAt: directMessages.readAt,
+        recipientFirstName: users.firstName,
+        recipientLastName: users.lastName,
+      })
       .from(directMessages)
+      .innerJoin(users, eq(directMessages.recipientId, users.id))
       .where(and(eq(directMessages.senderId, userId), eq(directMessages.senderDeleted, false)))
       .orderBy(desc(directMessages.sentAt));
   }
