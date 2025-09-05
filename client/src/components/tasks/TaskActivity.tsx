@@ -27,6 +27,8 @@ interface ActivityItem {
   message: string;
   createdAt: string;
   userId: string;
+  authorFirstName?: string;
+  authorLastName?: string;
 }
 
 const activityIcons = {
@@ -131,7 +133,12 @@ export default function TaskActivity({ taskId, isExpanded = false, onToggle }: T
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <p className="text-sm text-foreground">{activity.message}</p>
+                          <p className="text-sm text-foreground">
+                            {activity.type === 'comment' && activity.authorFirstName && (
+                              <span className="font-semibold">{activity.authorFirstName} {activity.authorLastName}: </span>
+                            )}
+                            {activity.message}
+                          </p>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline" className="text-xs capitalize">
                               {activity.type}

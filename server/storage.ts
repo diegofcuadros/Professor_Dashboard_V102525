@@ -176,7 +176,7 @@ export interface IStorage {
   updateTaskStatus(taskId: string, status: string, userId: string, note?: string): Promise<ProjectTask | undefined>;
   updateTaskProgress(taskId: string, progressPct: number, userId: string, note?: string): Promise<ProjectTask | undefined>;
   addTaskComment(taskId: string, userId: string, message: string): Promise<void>;
-  getTaskActivity(taskId: string): Promise<TaskActivity[]>;
+  getTaskActivity(taskId: string): Promise<any[]>;
   updateTaskChecklist(taskId: string, checklist: any[], userId: string): Promise<ProjectTask | undefined>;
   setTaskReminder(taskId: string, reminderAt: Date, userId: string): Promise<ProjectTask | undefined>;
   reviewTask(taskId: string, action: 'submit' | 'approve' | 'reject', userId: string, note?: string): Promise<ProjectTask | undefined>;
@@ -1098,10 +1098,15 @@ export class DatabaseStorage implements IStorage {
     await db.insert(taskActivity).values({ taskId, userId, type: 'comment', message });
   }
 
-  async getTaskActivity(taskId: string): Promise<TaskActivity[]> {
+  async getTaskActivity(taskId: string): Promise<any[]> {
     return await db
-      .select()
+      .select({
+        ...taskActivity,
+        authorFirstName: users.firstName,
+        authorLastName: users.lastName,
+      })
       .from(taskActivity)
+      .leftJoin(users, eq(taskActivity.userId, users.id))
       .where(eq(taskActivity.taskId, taskId))
       .orderBy(desc(taskActivity.createdAt));
   }
