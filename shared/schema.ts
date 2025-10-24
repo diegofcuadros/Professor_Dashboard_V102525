@@ -12,6 +12,7 @@ import {
   date,
   time,
   uuid,
+  vector,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -282,6 +283,75 @@ export const alertConfigurations = pgTable("alert_configurations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const documents = pgTable("documents", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  assignedToId: varchar("assigned_to_id").references(() => users.id),
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  title: varchar("title", { length: 255 }),
+  description: text("description"),
+  storagePath: varchar("storage_path", { length: 512 }).notNull(),
+  bucket: varchar("bucket", { length: 120 }).notNull(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileExtension: varchar("file_extension", { length: 20 }),
+  mimeType: varchar("mime_type", { length: 120 }),
+  fileSize: integer("file_size"),
+  checksum: varchar("checksum", { length: 128 }),
+  visibility: varchar("visibility", { length: 20 }).default('lab').notNull(), // 'lab' | 'private'
+  status: varchar("status", { length: 20 }).default('pending').notNull(), // 'pending' | 'processing' | 'ready' | 'failed' | 'archived'
+  ingestionErrors: jsonb("ingestion_errors"),
+  metadata: jsonb("metadata"),
+  embedder: varchar("embedder", { length: 120 }),
+  embeddingDimensions: integer("embedding_dimensions"),
+  lastEmbeddedAt: timestamp("last_embedded_at"),
+  lastIngestedAt: timestamp("last_ingested_at"),
+  chunkCount: integer("chunk_count").default(0),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  storagePathIdx: index("idx_documents_storage_path").on(table.storagePath),
+  ownerIdx: index("idx_documents_owner_id").on(table.ownerId),
+  statusIdx: index("idx_documents_status").on(table.status),
+  updatedAtIdx: index("idx_documents_updated_at").on(table.updatedAt),
+}));
+
+export const documentChunks = pgTable("document_chunks", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: uuid("document_id").references(() => documents.id, { onDelete: 'cascade' }).notNull(),
+  chunkIndex: integer("chunk_index").notNull(),
+  content: text("content").notNull(),
+  contentLength: integer("content_length").notNull(),
+  tokenCount: integer("token_count"),
+  embedding: vector("embedding", { dimensions: 768 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  documentIdx: index("idx_document_chunks_document_id").on(table.documentId),
+  chunkOrderIdx: index("idx_document_chunks_order").on(table.documentId, table.chunkIndex),
+}));
+
+export const documentTags = pgTable("document_tags", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: uuid("document_id").references(() => documents.id, { onDelete: 'cascade' }).notNull(),
+  tag: varchar("tag", { length: 60 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  documentTagIdx: index("idx_document_tags_document_id").on(table.documentId),
+  tagIdx: index("idx_document_tags_tag").on(table.tag),
+}));
+
+export const documentAccessLog = pgTable("document_access_log", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: uuid("document_id").references(() => documents.id, { onDelete: 'cascade' }).notNull(),
+  accessedBy: varchar("accessed_by").references(() => users.id).notNull(),
+  action: varchar("action", { length: 40 }).notNull(), // 'view' | 'download' | 'chat_reference' | 'ingest'
+  context: jsonb("context"),
+  accessedAt: timestamp("accessed_at").defaultNow().notNull(),
+}, (table) => ({
+  accessDocIdx: index("idx_document_access_document_id").on(table.documentId),
+  accessUserIdx: index("idx_document_access_user_id").on(table.accessedBy),
+  accessActionIdx: index("idx_document_access_action").on(table.action),
+}));
+
 export const taskAssignments = pgTable("task_assignments", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   taskId: uuid("task_id").references(() => projectTasks.id).notNull(),
@@ -318,6 +388,14 @@ export type LoginRequest = {
   email: string;
   password: string;
 };
+export type Document = typeof documents.$inferSelect;
+export type InsertDocument = typeof documents.$inferInsert;
+export type DocumentChunk = typeof documentChunks.$inferSelect;
+export type InsertDocumentChunk = typeof documentChunks.$inferInsert;
+export type DocumentTag = typeof documentTags.$inferSelect;
+export type InsertDocumentTag = typeof documentTags.$inferInsert;
+export type DocumentAccessLog = typeof documentAccessLog.$inferSelect;
+export type InsertDocumentAccessLog = typeof documentAccessLog.$inferInsert;
 export type InsertProject = typeof projects.$inferInsert;
 export type Project = typeof projects.$inferSelect;
 export type InsertProjectMilestone = typeof projectMilestones.$inferInsert;
@@ -448,6 +526,31 @@ export const insertScheduleBlockSchema = createInsertSchema(scheduleBlocks).omit
 export const insertTimeLogSchema = createInsertSchema(timeLogs).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertDocumentSchema = createInsertSchema(documents).omit({
+  id: true,
+  uploadedAt: true,
+  updatedAt: true,
+  lastEmbeddedAt: true,
+  lastIngestedAt: true,
+  chunkCount: true,
+  ingestionErrors: true,
+});
+
+export const insertDocumentChunkSchema = createInsertSchema(documentChunks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDocumentTagSchema = createInsertSchema(documentTags).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDocumentAccessLogSchema = createInsertSchema(documentAccessLog).omit({
+  id: true,
+  accessedAt: true,
 });
 
 export const createUserSchema = z.object({

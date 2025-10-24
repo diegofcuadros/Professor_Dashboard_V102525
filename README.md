@@ -114,6 +114,8 @@ npm run dev
 npm run docker:dev
 ```
 
+> After copying the environment template, provide values for the new `GOOGLE_API_KEY`, `GEMINI_*`, and `R2_*` variables so the retrieval-augmented generation (RAG) services can connect to Gemini and Cloudflare R2.
+
 ### Key Scripts
 ```bash
 npm run dev           # Start development server

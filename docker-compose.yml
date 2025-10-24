@@ -98,6 +98,15 @@ services:
       - MAILDEV_WEB_PORT=1080
     restart: unless-stopped
 
+  # ChromaDB for Vector Storage (RAG)
+  chroma:
+    image: chromadb/chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/.chroma/index
+    restart: unless-stopped
+
   # Background Job Worker (runs in same container as app in dev mode)
   # In production, this would be a separate container
   # worker:
@@ -122,6 +131,8 @@ volumes:
   redis_data:
     driver: local
   ollama_data:
+    driver: local
+  chroma_data:
     driver: local
   node_modules:
     driver: local
